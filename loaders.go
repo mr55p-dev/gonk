@@ -16,38 +16,42 @@ func nilLoaderFn(fieldType reflect.StructField, fieldValue reflect.Value, tag ta
 func MapLoader(data map[string]any) Loader {
 	return func(fieldType reflect.StructField, fieldValue reflect.Value, tag tagData) error {
 		// Set the value
+		val, err := traverseMap(data, tag.key, tag.path...)
+		if err != nil {
+			return err
+		}
 		switch fieldType.Type.Kind() {
 		case reflect.String:
-			var value string
-			err := traverseMap[string](&value, data, tag.key, tag.path...)
-			if err != nil {
-				return err
+			value, ok := val.(string)
+			if !ok {
+				return errInvalidValue(tag.key)
 			}
 			fieldValue.SetString(value)
 		case reflect.Int:
-			var value int
-			err := traverseMap[int](&value, data, tag.key, tag.path...)
-			if err != nil {
-				return err
+			value, ok := val.(int)
+			if !ok {
+				return errInvalidValue(tag.key)
 			}
 			fieldValue.SetInt(int64(value))
 		case reflect.Struct:
-			structValue := reflect.Zero(fieldType.Type)
+			value, ok := val.(map[string]any)
+			if !ok {
+				return errInvalidValue(tag.key)
+			}
+			structValueRef := reflect.New(fieldType.Type)
+			structValue := structValueRef.Elem()
 			structType := structValue.Type()
-			structLoader := MapLoader(data)
+			structLoader := MapLoader(value)
 			for i := 0; i < structValue.NumField(); i++ {
 				fieldVal := structValue.Field(i)
 				fieldType := structType.Field(i)
 				fieldTag := fieldType.Tag.Get("config")
 				if fieldTag == "" {
-					fmt.Println("Skipping field")
 					continue
 				}
 				fieldTagData := parseConfigTag(fieldTag)
-				fmt.Printf("fieldTagData: %+v\n", fieldTagData)
 				err := structLoader(fieldType, fieldVal, fieldTagData)
 				if err != nil {
-					fmt.Println("Error", err.Error())
 					return err
 				}
 			}
