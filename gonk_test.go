@@ -106,3 +106,29 @@ func TestParseTagOptional(t *testing.T) {
 	assert.Equal(config, tag.config)
 	assert.True(tag.options.optional)
 }
+
+type ContainerConfig struct {
+	Img string `config:"container.img"`
+	Ecr string `config:"ecr"`
+	Tag string `config:"tag"`
+}
+
+type AppConfig struct {
+	Name        string          `config:"name"`
+	Environment string          `config:"environment"`
+	Container   ContainerConfig `config:"container"`
+}
+
+func TestSomething(t *testing.T) {
+	assert := assert.New(t)
+	out := new(AppConfig)
+	LoadConfig(
+		out,
+		FileLoader("../splat/example.dev.yaml", false),
+	)
+	assert.Equal(
+		"example",
+		out.Container.Img,
+		"Image was not loaded correctly",
+	)
+}

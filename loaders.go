@@ -1,6 +1,7 @@
 package gonk
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -12,32 +13,49 @@ func nilLoaderFn(fieldType reflect.StructField, fieldValue reflect.Value, tag ta
 	return nil
 }
 
-func MapLoader(configFile map[string]any) Loader {
+func MapLoader(data map[string]any) Loader {
 	return func(fieldType reflect.StructField, fieldValue reflect.Value, tag tagData) error {
 		// Set the value
 		switch fieldType.Type.Kind() {
 		case reflect.String:
 			var value string
-			err := traverseMap[string](&value, configFile, tag.key, tag.path...)
+			err := traverseMap[string](&value, data, tag.key, tag.path...)
 			if err != nil {
-				if _, isPresent := err.(*KeyNotPresent); isPresent {
-					return err
-				} else {
-					return err
-				}
+				return err
 			}
 			fieldValue.SetString(value)
 		case reflect.Int:
 			var value int
-			err := traverseMap[int](&value, configFile, tag.key, tag.path...)
+			err := traverseMap[int](&value, data, tag.key, tag.path...)
 			if err != nil {
-				if _, isPresent := err.(*KeyNotPresent); isPresent {
-					return err
-				} else {
+				return err
+			}
+			fieldValue.SetInt(int64(value))
+		case reflect.Struct:
+			structValue := reflect.Zero(fieldType.Type)
+			structType := structValue.Type()
+			structLoader := MapLoader(data)
+			for i := 0; i < structValue.NumField(); i++ {
+				fieldVal := structValue.Field(i)
+				fieldType := structType.Field(i)
+				fieldTag := fieldType.Tag.Get("config")
+				if fieldTag == "" {
+					fmt.Println("Skipping field")
+					continue
+				}
+				fieldTagData := parseConfigTag(fieldTag)
+				fmt.Printf("fieldTagData: %+v\n", fieldTagData)
+				err := structLoader(fieldType, fieldVal, fieldTagData)
+				if err != nil {
+					fmt.Println("Error", err.Error())
 					return err
 				}
 			}
-			fieldValue.SetInt(int64(value))
+			fieldValue.Set(structValue)
+		case reflect.Array:
+			return nil
+		default:
+			return fmt.Errorf("Invalid field type")
 		}
 		return nil
 	}
