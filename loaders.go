@@ -2,7 +2,9 @@ package gonk
 
 import (
 	"fmt"
+	"os"
 	"reflect"
+	"strings"
 )
 
 type Loader func(dest any) errorList
@@ -141,24 +143,52 @@ func FileLoader(configFile string, ignoreMissing bool) Loader {
 	return MapLoader(file)
 }
 
-// func EnvironmentLoader(envPrefix string) Loader {
-// 	return func(fieldType reflect.StructField, fieldValue reflect.Value, tag tagData) error {
-// 		// Read the environment variables
-// 		envName := getEnvName(tag.key, envPrefix)
-// 		envVal, ok := os.LookupEnv(envName)
-// 		if !ok {
-// 			return &KeyNotPresent{"Key expected in variable " + envName}
-// 		}
-// 		switch fieldType.Type.Kind() {
-// 		case reflect.String:
-// 			fieldValue.SetString(envVal)
-// 		case reflect.Int:
-// 			envValInt, err := strconv.Atoi(envVal)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			fieldValue.SetInt(int64(envValInt))
-// 		}
-// 		return nil
-// 	}
-// }
+func EnvironmentLoader(envPrefix string) Loader {
+	return func(dest any) (errs errorList) {
+		// This function should be called with a struct
+		stack := new(Stack)
+		initFrame := &StackFrame{
+			typeOf:  reflect.TypeOf(dest).Elem(),
+			valueOf: reflect.ValueOf(dest).Elem(),
+			tag:     tagData{},
+		}
+		stack.Push(initFrame)
+
+		for stack.Size() > 0 {
+			elem := stack.Pop()
+			tagSegments := []string{}
+			tagSegments = append(tagSegments, envPrefix)
+			tagSegments = append(tagSegments, elem.tag.path...)
+			tagSegments = append(tagSegments, elem.tag.key)
+
+			envName := strings.Join(tagSegments, "_")
+			envValue, ok := os.LookupEnv(envName)
+			if !ok {
+				errs = append(errs, errKeyNotPresent(elem.tag.key))
+				continue
+			}
+			switch elem.typeOf.Kind() {
+			case reflect.String:
+				elem.valueOf.SetString(envValue)
+			case reflect.Struct:
+				if !ok {
+					goto onError
+				}
+				structVal := reflect.New(elem.typeOf).Elem()
+				elem.valueOf.Set(structVal)
+				queueStruct(stack, nil, elem)
+			}
+			continue
+		onError:
+			if elem.data == nil {
+				if !elem.tag.options.optional {
+					errs = append(errs, errKeyNotPresent(elem.tag.key))
+				}
+			} else {
+				errs = append(errs, errInvalidValue(elem.tag.key))
+			}
+		}
+
+		return errs
+	}
+}

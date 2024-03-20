@@ -1,6 +1,7 @@
 package gonk
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -112,10 +113,10 @@ type IntermediateB struct {
 
 type RootType struct {
 	FieldA string          `config:"fieldA"`
-	FieldB int             `config:"fieldB"`
+	FieldB int             `config:"fieldB,optional"`
 	FieldC string          `config:"fieldC,optional"`
 	FieldD IntermediateA   `config:"fieldD"`
-	FieldF []IntermediateB `config:"fieldF"`
+	FieldF []IntermediateB `config:"fieldF,optional"`
 }
 
 func TestSomething(t *testing.T) {
@@ -140,6 +141,29 @@ func TestSomething(t *testing.T) {
 	assert.NoError(LoadConfig(
 		out,
 		FileLoader("./test.yaml", false),
+	))
+	assert.Equal(
+		expected, *out,
+		"Image was not loaded correctly",
+	)
+}
+
+func TestSomethingElse(t *testing.T) {
+	assert := assert.New(t)
+	out := new(RootType)
+	os.Setenv("CONFIG_FIELDA", "hello")
+	os.Setenv("CONFIG_FIELDC", "hello")
+	os.Setenv("CONFIG_FIELDD_FIELDE", "world")
+
+	expected := RootType{
+		FieldA: "hello",
+		FieldD: IntermediateA{
+			FieldE: "world",
+		},
+	}
+	assert.NoError(LoadConfig(
+		out,
+		EnvironmentLoader("CONFIG"),
 	))
 	assert.Equal(
 		expected, *out,
