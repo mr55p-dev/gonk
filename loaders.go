@@ -164,12 +164,13 @@ func (prefix envLoader) Set(node reflect.Value, tag Tag) (reflect.Value, error) 
 	}
 }
 
-func GenericLoader(target any, l loader) error {
+func applyLoader(target any, l loader) errorList {
 	errs := make(errorList, 0)
 	nodeStk := new(Stack)
 	frames, err := Queue(reflect.ValueOf(target), Tag{})
 	if err != nil {
-		return err
+		errs = append(errs, err)
+		return errs
 	}
 	for _, v := range frames {
 		nodeStk.Push(v)
@@ -203,7 +204,7 @@ func GenericLoader(target any, l loader) error {
 	if len(errs) == 0 {
 		return nil
 	}
-	return errors.Join(errs...)
+	return errs
 }
 
 func MapLoader(data map[string]any) Loader {

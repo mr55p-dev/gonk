@@ -199,7 +199,7 @@ func TestAnotherThing(t *testing.T) {
 
 	assert.NoError(yaml.Unmarshal(data, mapData), "Error loading data")
 	loader := mapLoader(mapData)
-	assert.NoError(GenericLoader(out, loader))
+	assert.NoError(applyLoader(out, loader))
 	assert.Equal(
 		expected, *out,
 		"Image was not loaded correctly",
