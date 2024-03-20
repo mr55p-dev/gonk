@@ -77,7 +77,6 @@ func queueSlice(stack *Stack, arrData []any, elem *StackFrame) {
 
 type loader interface {
 	Set(node reflect.Value, tag Tag) (reflect.Value, error)
-	Queue(node reflect.Value, tag Tag) ([]*StackFrame, error)
 }
 
 type mapLoader map[string]any
@@ -113,24 +112,7 @@ func (m mapLoader) Set(node reflect.Value, tag Tag) (reflect.Value, error) {
 	}
 }
 
-func (prefix envLoader) Set(node reflect.Value, tag Tag) (reflect.Value, error) {
-	zero := reflect.Zero(node.Type())
-	switch node.Kind() {
-	case reflect.String:
-		val, ok := os.LookupEnv(prefix.getEnvName(tag))
-		if !ok {
-			return zero, errKeyNotPresent(tag.String())
-		}
-		return reflect.ValueOf(val), nil
-	case reflect.Struct:
-		val := reflect.New(node.Type()).Elem()
-		return val, nil
-	default:
-		return zero, fmt.Errorf("Invalid tkey type for key %s", tag.String())
-	}
-}
-
-func (m mapLoader) Queue(node reflect.Value, tag Tag) (out []*StackFrame, err error) {
+func Queue(node reflect.Value, tag Tag) (out []*StackFrame, err error) {
 	switch node.Kind() {
 	case reflect.Struct:
 		nodeType := node.Type()
@@ -159,16 +141,33 @@ func (m mapLoader) Queue(node reflect.Value, tag Tag) (out []*StackFrame, err er
 		}
 		return
 	case reflect.Pointer:
-		return m.Queue(node.Elem(), tag)
+		return Queue(node.Elem(), tag)
 	default:
 		return
+	}
+}
+
+func (prefix envLoader) Set(node reflect.Value, tag Tag) (reflect.Value, error) {
+	zero := reflect.Zero(node.Type())
+	switch node.Kind() {
+	case reflect.String:
+		val, ok := os.LookupEnv(prefix.getEnvName(tag))
+		if !ok {
+			return zero, errKeyNotPresent(tag.String())
+		}
+		return reflect.ValueOf(val), nil
+	case reflect.Struct:
+		val := reflect.New(node.Type()).Elem()
+		return val, nil
+	default:
+		return zero, fmt.Errorf("Invalid tkey type for key %s", tag.String())
 	}
 }
 
 func GenericLoader(target any, l loader) error {
 	errs := make(errorList, 0)
 	nodeStk := new(Stack)
-	frames, err := l.Queue(reflect.ValueOf(target), Tag{})
+	frames, err := Queue(reflect.ValueOf(target), Tag{})
 	if err != nil {
 		return err
 	}
@@ -192,7 +191,7 @@ func GenericLoader(target any, l loader) error {
 		node.valueOf.Set(newVal)
 
 		// Queue new nodes from it if needed
-		frames, err := l.Queue(node.valueOf, node.tag)
+		frames, err := Queue(node.valueOf, node.tag)
 		if err != nil {
 			errs = append(errs, err)
 			continue
