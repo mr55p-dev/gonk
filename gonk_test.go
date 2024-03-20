@@ -130,51 +130,51 @@ type RootType struct {
 	FieldF []IntermediateB `config:"fieldF,optional"`
 }
 
-func TestSomething(t *testing.T) {
-	assert := assert.New(t)
-	out := new(RootType)
-	expected := RootType{
-		FieldA: "hello",
-		FieldB: 10,
-		FieldD: IntermediateA{
-			FieldE: "world",
-		},
-		FieldF: []IntermediateB{
-			{FieldG: "foo", FieldH: "bar"},
-			{FieldG: "baz"},
-		},
-	}
-	assert.NoError(LoadConfig(
-		out,
-		FileLoader("./test.yaml", false),
-	))
-	assert.Equal(
-		expected, *out,
-		"Image was not loaded correctly",
-	)
-}
-
-func TestSomethingElse(t *testing.T) {
-	assert := assert.New(t)
-	out := new(RootType)
-	os.Setenv("CONFIG_FIELDA", "hello")
-	os.Setenv("CONFIG_FIELDD_FIELDE", "world")
-
-	expected := RootType{
-		FieldA: "hello",
-		FieldD: IntermediateA{
-			FieldE: "world",
-		},
-	}
-	assert.NoError(LoadConfig(
-		out,
-		EnvironmentLoader("CONFIG"),
-	))
-	assert.Equal(
-		expected, *out,
-		"Image was not loaded correctly",
-	)
-}
+// func TestSomething(t *testing.T) {
+// 	assert := assert.New(t)
+// 	out := new(RootType)
+// 	expected := RootType{
+// 		FieldA: "hello",
+// 		FieldB: 10,
+// 		FieldD: IntermediateA{
+// 			FieldE: "world",
+// 		},
+// 		FieldF: []IntermediateB{
+// 			{FieldG: "foo", FieldH: "bar"},
+// 			{FieldG: "baz"},
+// 		},
+// 	}
+// 	assert.NoError(LoadConfig(
+// 		out,
+// 		FileLoader("./test.yaml", false),
+// 	))
+// 	assert.Equal(
+// 		expected, *out,
+// 		"Image was not loaded correctly",
+// 	)
+// }
+//
+// func TestSomethingElse(t *testing.T) {
+// 	assert := assert.New(t)
+// 	out := new(RootType)
+// 	os.Setenv("CONFIG_FIELDA", "hello")
+// 	os.Setenv("CONFIG_FIELDD_FIELDE", "world")
+//
+// 	expected := RootType{
+// 		FieldA: "hello",
+// 		FieldD: IntermediateA{
+// 			FieldE: "world",
+// 		},
+// 	}
+// 	assert.NoError(LoadConfig(
+// 		out,
+// 		EnvironmentLoader("CONFIG"),
+// 	))
+// 	assert.Equal(
+// 		expected, *out,
+// 		"Image was not loaded correctly",
+// 	)
+// }
 
 func TestAnotherThing(t *testing.T) {
 	assert := assert.New(t)

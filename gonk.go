@@ -39,15 +39,6 @@ func (t tagData) Push(component tagData) tagData {
 	}
 }
 
-func (t tagData) Pop() (any, tagData) {
-	if len(t.path) == 0 {
-		return nil, tagData{}
-	}
-	return t.path[len(t.path)-1], tagData{
-		path: t.path,
-	}
-}
-
 func parseConfigTag(config string) tagData {
 	data := tagData{}
 	v := strings.Split(config, ",")

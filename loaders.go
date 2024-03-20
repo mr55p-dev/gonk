@@ -85,7 +85,7 @@ type envLoader string
 func (m mapLoader) Set(node reflect.Value, tag tagData) (reflect.Value, error) {
 	zero := reflect.Zero(node.Type())
 	val, err := traverse(map[string]any(m), tag)
-	if err != nil {
+	if err != nil || val == nil {
 		return zero, errKeyNotPresent(tag.String())
 	}
 	switch node.Kind() {
@@ -140,6 +140,7 @@ func (m mapLoader) Queue(node reflect.Value, tag tagData) (out []*StackFrame, er
 
 			newFrame.valueOf = node.Field(i)
 			newFrame.tag = parseConfigTag(tagRaw)
+			newFrame.tag = tag.Push(newFrame.tag)
 			out = append(out, newFrame)
 		}
 		return
@@ -175,7 +176,14 @@ func GenericLoader(target any, l loader) error {
 		// Set the nodes value
 		newVal, err := l.Set(node.valueOf, node.tag)
 		if err != nil {
-			errs = append(errs, err)
+			switch err.(type) {
+			case *KeyNotPresent:
+				if !node.tag.options.optional {
+					errs = append(errs, err)
+				}
+			default:
+				errs = append(errs, err)
+			}
 		}
 		node.valueOf.Set(newVal)
 
@@ -186,7 +194,6 @@ func GenericLoader(target any, l loader) error {
 			continue
 		}
 		for _, frame := range frames {
-			frame.tag = node.tag.Push(frame.tag)
 			nodeStk.Push(frame)
 		}
 	}
