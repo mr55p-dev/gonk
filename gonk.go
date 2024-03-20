@@ -39,6 +39,17 @@ func (t Tag) Push(component Tag) Tag {
 	}
 }
 
+func (t Tag) NamedKeys() []string {
+	out := make([]string, 0)
+	for _, val := range t.path {
+		v, ok := val.(string)
+		if ok {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 func parseConfigTag(config string) Tag {
 	data := Tag{}
 	v := strings.Split(config, ",")

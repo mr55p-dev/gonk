@@ -1,18 +1,23 @@
 package gonk
 
 import (
-	"fmt"
 	"strings"
 )
 
-func getEnvName(key string, prefix string) string {
+func (prefix envLoader) getEnvName(tag Tag) string {
 	replacer := strings.NewReplacer(
 		"-", "_",
 		".", "_",
 	)
-	if prefix != "" {
-		prefix = strings.ToUpper(prefix)
-		prefix = fmt.Sprintf("%s_", prefix)
+	parts := []string{}
+	if string(prefix) != "" {
+		parts = append(parts, string(prefix))
 	}
-	return fmt.Sprintf("%s%s", prefix, strings.ToUpper(replacer.Replace(key)))
+	for _, part := range tag.NamedKeys() {
+		parts = append(parts, part)
+	}
+	out := strings.Join(parts, "_")
+	out = strings.ToUpper(out)
+	out = replacer.Replace(out)
+	return out
 }

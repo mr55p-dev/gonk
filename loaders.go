@@ -3,6 +3,7 @@ package gonk
 import (
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 )
 
@@ -112,19 +113,22 @@ func (m mapLoader) Set(node reflect.Value, tag Tag) (reflect.Value, error) {
 	}
 }
 
-// func (prefix envLoader) Set(node reflect.Value, tag tagData) (reflect.Value, error) {
-// 	zero := reflect.Zero(node.Type())
-// 	switch node.Kind() {
-// 	case reflect.String:
-// 		val := os.Getenv(tag.key)
-// 		return reflect.ValueOf(val), nil
-// 	case reflect.Struct:
-// 		val := reflect.New(node.Type()).Elem()
-// 		return val, nil
-// 	default:
-// 		return zero, fmt.Errorf("Invalid tkey type for key %s", tag.key)
-// 	}
-// }
+func (prefix envLoader) Set(node reflect.Value, tag Tag) (reflect.Value, error) {
+	zero := reflect.Zero(node.Type())
+	switch node.Kind() {
+	case reflect.String:
+		val, ok := os.LookupEnv(prefix.getEnvName(tag))
+		if !ok {
+			return zero, errKeyNotPresent(tag.String())
+		}
+		return reflect.ValueOf(val), nil
+	case reflect.Struct:
+		val := reflect.New(node.Type()).Elem()
+		return val, nil
+	default:
+		return zero, fmt.Errorf("Invalid tkey type for key %s", tag.String())
+	}
+}
 
 func (m mapLoader) Queue(node reflect.Value, tag Tag) (out []*StackFrame, err error) {
 	switch node.Kind() {

@@ -79,8 +79,10 @@ func TestGetEnvName(t *testing.T) {
 		"key_with-mixed":  "KEY_WITH_MIXED",
 		"path.key-name":   "PATH_KEY_NAME",
 	}
-	for k, v := range tests {
-		assert.Equal(v, getEnvName(k, ""))
+	loader := envLoader("")
+	for input, expected := range tests {
+		tag := parseConfigTag(input)
+		assert.Equal(expected, loader.getEnvName(tag))
 	}
 }
 
@@ -90,8 +92,10 @@ func TestGetEnvNameWithPrefix(t *testing.T) {
 		"key":           "XYZ_KEY",
 		"path.key-name": "XYZ_PATH_KEY_NAME",
 	}
-	for k, v := range tests {
-		assert.Equal(v, getEnvName(k, "xyz"))
+	loader := envLoader("xyz")
+	for input, expected := range tests {
+		tag := parseConfigTag(input)
+		assert.Equal(expected, loader.getEnvName(tag))
 	}
 }
 
