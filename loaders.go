@@ -5,9 +5,9 @@ import (
 	"reflect"
 )
 
-type Loader func(dest any) errors
+type Loader func(dest any) errorList
 
-func nilLoaderFn(dest any) errors {
+func nilLoaderFn(dest any) errorList {
 	return nil
 }
 
@@ -40,7 +40,7 @@ func (s *Stack) Size() int {
 	return len(s.storage)
 }
 
-func queueStruct(stack *Stack, data map[string]any, errs errors, baseFrame *StackFrame) {
+func queueStruct(stack *Stack, data map[string]any, baseFrame *StackFrame) {
 	for i := 0; i < baseFrame.typeOf.NumField(); i++ {
 		// Create a new stack frame
 		frame := new(StackFrame)
@@ -52,18 +52,26 @@ func queueStruct(stack *Stack, data map[string]any, errs errors, baseFrame *Stac
 			continue
 		}
 		frame.tag = parseConfigTag(tagRaw)
-		if !ok {
-			errs[frame.valueOf.Type().Name()] = errInvalidValue("")
-		}
 		frame.data = data[frame.tag.key]
 		stack.Push(frame)
 	}
+	return
+}
+
+func queueSlice(stack *Stack, arrData []any, elem *StackFrame) {
+	for idx, arrElem := range arrData {
+		newFrame := new(StackFrame)
+		newFrame.data = arrElem
+		newFrame.typeOf = elem.typeOf.Elem()
+		newFrame.valueOf = elem.valueOf.Index(idx)
+		stack.Push(newFrame)
+	}
+	return
 }
 
 func MapLoader(data map[string]any) Loader {
-	return func(dest any) errors {
+	return func(dest any) (errs errorList) {
 		// This function should be called with a struct
-		errs := make(errors)
 		stack := new(Stack)
 		initFrame := &StackFrame{
 			typeOf:  reflect.TypeOf(dest).Elem(),
@@ -72,6 +80,7 @@ func MapLoader(data map[string]any) Loader {
 			tag:     tagData{},
 		}
 		stack.Push(initFrame)
+		fmt.Printf("data: %+v\n", data)
 
 		for stack.Size() > 0 {
 			elem := stack.Pop()
@@ -79,56 +88,44 @@ func MapLoader(data map[string]any) Loader {
 			case reflect.String:
 				strData, ok := elem.data.(string)
 				if !ok {
-					errs[elem.tag.key] = errInvalidValue(elem.tag.key)
-					continue
+					goto onError
 				}
 				elem.valueOf.SetString(strData)
-				fmt.Printf("Setting %s to %s\n", elem.typeOf.Name(), strData)
 			case reflect.Int:
 				intData, ok := elem.data.(int)
 				if !ok {
-					errs[elem.tag.key] = errInvalidValue(elem.tag.key)
-					continue
+					goto onError
 				}
 				elem.valueOf.SetInt(int64(intData))
 			case reflect.Struct:
 				structData, ok := elem.data.(map[string]any)
 				if !ok {
-					errs[elem.tag.key] = errInvalidValue(elem.tag.key)
+					goto onError
 				}
 				structVal := reflect.New(elem.typeOf).Elem()
 				elem.valueOf.Set(structVal)
-				queueStruct(stack, structData, errs, elem)
+				queueStruct(stack, structData, elem)
 			case reflect.Slice:
-				arrData, ok := elem.data.([]any)
+				sliceData, ok := elem.data.([]any)
 				if !ok {
-					errs[elem.tag.key] = errInvalidValue(elem.tag.key)
-					continue
+					goto onError
 				}
-				// Allocate a new array of the type
-				newSlice := reflect.MakeSlice(
-					elem.typeOf,
-					len(arrData),
-					len(arrData),
-				)
-				elem.valueOf.Set(newSlice)
-				for idx, arrElem := range arrData {
-					newFrame := new(StackFrame)
-					newFrame.data = arrElem
-					newFrame.typeOf = elem.typeOf.Elem()
-					newFrame.valueOf = newSlice.Index(idx)
-
-					stack.Push(newFrame)
+				sliceVal := reflect.MakeSlice(elem.typeOf, len(sliceData), len(sliceData))
+				elem.valueOf.Set(sliceVal)
+				queueSlice(stack, sliceData, elem)
+			}
+			continue
+		onError:
+			if elem.data == nil {
+				if !elem.tag.options.optional {
+					errs = append(errs, errKeyNotPresent(elem.tag.key))
 				}
-				fmt.Printf("newSlice.Interface(): %v\n", newSlice.Interface())
+			} else {
+				errs = append(errs, errInvalidValue(elem.tag.key))
 			}
 		}
 
-		fmt.Printf("dest: %#v\n", dest)
-		fmt.Printf("errs: %#v\n", errs)
-		fmt.Printf("initFrame.valueOf.Interface(): %v\n", initFrame.valueOf.Interface())
-
-		return nil
+		return errs
 	}
 }
 

@@ -1,7 +1,7 @@
 package gonk
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 )
 
@@ -43,53 +43,32 @@ func parseConfigTag(config string) tagData {
 }
 
 func LoadConfig(dest any, loaders ...Loader) error {
-	var err error
-	defer func() {
-		if msg := recover(); msg != nil {
-			fmt.Println("Something paniced", msg)
-			err = fmt.Errorf("Panic generated: %s", msg)
-		}
-	}()
-
 	// for each loader, do some loading
-	for idx, loader := range loaders {
-		errs := make(map[string]error)
-		applyLoader(loader, dest, errs)
-
-		// handle errors
-		for _, err := range errs {
+	validErrors := make(errorList, 0)
+	for _, loader := range loaders {
+		errs := loader(dest)
+		for idx, err := range errs {
 			switch err.(type) {
 			case *KeyNotPresent:
 				if idx == len(loaders)-1 {
-					return err
+					validErrors = append(validErrors, err)
 				}
 			default:
-				return err
+				validErrors = append(validErrors, err)
 			}
 		}
+	}
+	if len(validErrors) == 0 {
 		return nil
 	}
 
-	return err
+	return errors.Join(validErrors...)
 }
 
-type errors map[string]error
+type errorList []error
 
 func tagPathConcat(original tagData, parts []string) tagData {
 	out := original
 	out.path = append(parts, out.path...)
 	return out
-}
-
-func applyLoader(fn Loader, dest any, errs errors) {
-	fmt.Println("Starting calling loader")
-	_ = fn(dest)
-	fmt.Printf("errs: %v\n", errs)
-	// if err != nil {
-	// 	if _, ok := err.(*KeyNotPresent); ok && tagParsed.options.optional {
-	// 		continue
-	// 	} else {
-	// 		errs[tagParsed.config] = err
-	// 	}
-	// }
 }

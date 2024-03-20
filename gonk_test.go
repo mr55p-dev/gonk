@@ -101,35 +101,48 @@ func TestParseTagOptional(t *testing.T) {
 	assert.True(tag.options.optional)
 }
 
-type ContainerConfig struct {
-	Img string `config:"image"`
-	// Ecr string `config:"ecr,optional"`
-	Tag string `config:"tag"`
+type IntermediateA struct {
+	FieldE string `config:"fieldE"`
 }
 
-type AppConfig struct {
-	Name        string          `config:"name"`
-	Environment string          `config:"environment"`
-	Container   ContainerConfig `config:"container"`
-	Volumes     []string        `config:"volumes"`
+type IntermediateB struct {
+	FieldG string `config:"fieldG"`
+	FieldH string `config:"fieldH,optional"`
+}
+
+type RootType struct {
+	FieldA string          `config:"fieldA"`
+	FieldB int             `config:"fieldB"`
+	FieldC string          `config:"fieldC,optional"`
+	FieldD IntermediateA   `config:"fieldD"`
+	FieldF []IntermediateB `config:"fieldF"`
 }
 
 func TestSomething(t *testing.T) {
 	assert := assert.New(t)
-	out := new(AppConfig)
-	err := LoadConfig(
+	out := new(RootType)
+	expected := RootType{
+		FieldA: "hello",
+		FieldB: 10,
+		FieldD: IntermediateA{
+			FieldE: "world",
+		},
+		FieldF: []IntermediateB{
+			{
+				FieldG: "foo",
+				FieldH: "bar",
+			},
+			{
+				FieldG: "baz",
+			},
+		},
+	}
+	assert.NoError(LoadConfig(
 		out,
-		FileLoader("../splat/example.dev.yaml", false),
-	)
-	assert.Nil(err)
+		FileLoader("./test.yaml", false),
+	))
 	assert.Equal(
-		"example",
-		out.Container.Img,
+		expected, *out,
 		"Image was not loaded correctly",
-	)
-	assert.ElementsMatch(
-		[]string{"hello", "world"},
-		out.Volumes,
-		"Array was not loaded succesfully",
 	)
 }
