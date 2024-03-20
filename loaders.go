@@ -33,31 +33,17 @@ func MapLoader(data map[string]any) Loader {
 				return errInvalidValue(tag.key)
 			}
 			fieldValue.SetInt(int64(value))
-		case reflect.Struct:
-			value, ok := val.(map[string]any)
+		case reflect.Array:
+			value, ok := val.([]any)
 			if !ok {
 				return errInvalidValue(tag.key)
 			}
-			structValueRef := reflect.New(fieldType.Type)
-			structValue := structValueRef.Elem()
-			structType := structValue.Type()
-			structLoader := MapLoader(value)
-			for i := 0; i < structValue.NumField(); i++ {
-				fieldVal := structValue.Field(i)
-				fieldType := structType.Field(i)
-				fieldTag := fieldType.Tag.Get("config")
-				if fieldTag == "" {
-					continue
-				}
-				fieldTagData := parseConfigTag(fieldTag)
-				err := structLoader(fieldType, fieldVal, fieldTagData)
-				if err != nil {
-					return err
-				}
+			loader := MapLoader(data)
+			slice := reflect.MakeSlice(fieldType.Type, 0, len(value))
+			for _, item := range value {
+				itemVal := loader()
+				reflect.Append(slice, )
 			}
-			fieldValue.Set(structValue)
-		case reflect.Array:
-			return nil
 		default:
 			return fmt.Errorf("Invalid field type")
 		}
