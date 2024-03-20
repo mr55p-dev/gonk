@@ -1,6 +1,7 @@
 package gonk
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"reflect"
@@ -14,10 +15,11 @@ func nilLoaderFn(dest any) errorList {
 }
 
 type StackFrame struct {
-	valueOf reflect.Value
-	typeOf  reflect.Type
 	tag     tagData
-	data    any
+	valueOf reflect.Value
+
+	typeOf reflect.Type
+	data   any
 }
 
 type Stack struct {
@@ -75,43 +77,124 @@ func queueSlice(stack *Stack, arrData []any, elem *StackFrame) {
 }
 
 type loader interface {
-	Init() error
-	SetFromNode(node reflect.Value) (reflect.Value, error)
+	Set(node reflect.Value, tag tagData) (reflect.Value, error)
 	Queue(node reflect.Value) ([]*StackFrame, error)
-	CanQueue(node reflect.Type) bool
-	CanRead(node reflect.Type) bool
 }
 
-func GenericLoader(target any, l loader) {
-	nodeStk := new(Stack)
-	frames, err := l.Queue(reflect.ValueOf(target).Elem())
-	for nodeStk.Size() > 0 {
-		elem := nodeStk.Pop()
-		if l.CanQueue(elem.typeOf) {
-			frames, err := l.Queue(nodeStk)
-			if err != nil {
-				panic(err)
-			}
-			for _, frame := range frames {
-				nodeStk.Push(frame)
-			}
+type mapLoader map[string]any
+type envLoader string
+
+func (m mapLoader) Set(node reflect.Value, tag tagData) (reflect.Value, error) {
+	zero := reflect.Zero(node.Type())
+	switch node.Kind() {
+	case reflect.String, reflect.Int:
+		val, err := traverseMap(m, tag.key, tag.path...)
+		if err != nil {
+			return zero, errKeyNotPresent(tag.key)
 		}
-		if l.CanRead(elem.typeOf) {
-			l.SetFromNode(elem.valueOf, elem.tag)
+		return reflect.ValueOf(val), nil
+	case reflect.Struct:
+		val := reflect.New(node.Type()).Elem()
+		return val, nil
+	case reflect.Slice:
+		val, err := traverseMap(m, tag.key, tag.path...)
+		if err != nil {
+			return zero, errKeyNotPresent(tag.key)
 		}
+		valSlice, ok := val.([]any)
+		if !ok {
+			return zero, errInvalidValue(tag.key)
+		}
+		slice := reflect.MakeSlice(node.Type(), len(valSlice), len(valSlice))
+		return slice, nil
+	case reflect.Pointer:
+		return m.Set(node.Elem(), tag)
+	default:
+		return zero, fmt.Errorf("Invalid type for key %s", tag.key)
 	}
 }
 
-/*
-- traverse the struct
-- for each field of the struct, tagged with config
-	- parse the field tag
-	- check the node type
-	- case string/int/settable:
-		- run setter
-	- case struct/arr:
-		- traverse nested struct
-*/
+func (prefix envLoader) Set(node reflect.Value, tag tagData) (reflect.Value, error) {
+	zero := reflect.Zero(node.Type())
+	switch node.Kind() {
+	case reflect.String:
+		val := os.Getenv(tag.key)
+		return reflect.ValueOf(val), nil
+	case reflect.Struct:
+		val := reflect.New(node.Type()).Elem()
+		return val, nil
+	default:
+		return zero, fmt.Errorf("Invalid tkey type for key %s", tag.key)
+	}
+}
+
+func (m mapLoader) Queue(node reflect.Value) (out []*StackFrame, err error) {
+	switch node.Kind() {
+	case reflect.Struct:
+		nodeType := node.Type()
+		for i := 0; i < nodeType.NumField(); i++ {
+			newFrame := new(StackFrame)
+			fieldType := nodeType.Field(i)
+			tagRaw, ok := fieldType.Tag.Lookup("config")
+			if !ok {
+				continue
+			}
+
+			newFrame.valueOf = node.Field(i)
+			newFrame.tag = parseConfigTag(tagRaw)
+			out = append(out, newFrame)
+		}
+		return
+	case reflect.Slice:
+		nodeType := node.Type()
+		nodeElemType := nodeType.Elem()
+		for i := 0; i < node.Len(); i++ {
+			frame := new(StackFrame)
+			frame.valueOf = node.Index(i)
+			frame.tag = 
+		}
+	case reflect.Pointer:
+		return m.Queue(node.Elem())
+	default:
+		return
+	}
+}
+
+func GenericLoader(target any, l loader) error {
+	errs := make(errorList, 0)
+	nodeStk := new(Stack)
+	frames, err := l.Queue(reflect.ValueOf(target))
+	if err != nil {
+		return err
+	}
+	for _, v := range frames {
+		nodeStk.Push(v)
+	}
+	for nodeStk.Size() > 0 {
+		node := nodeStk.Pop()
+		// Set the nodes value
+		newVal, err := l.Set(node.valueOf, node.tag)
+		if err != nil {
+			errs = append(errs, err)
+		}
+		node.valueOf.Set(newVal)
+
+		// Queue new nodes from it if needed
+		frames, err := l.Queue(node.valueOf)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		for _, frame := range frames {
+			frame.tag = tagPathConcat(frame.tag, node.tag.key)
+			nodeStk.Push(frame)
+		}
+	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return errors.Join(errs...)
+}
 
 func MapLoader(data map[string]any) Loader {
 	return func(dest any) (errs errorList) {

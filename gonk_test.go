@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"gopkg.in/yaml.v3"
 )
 
 func TestTraverseMap(t *testing.T) {
@@ -159,6 +160,32 @@ func TestSomethingElse(t *testing.T) {
 		out,
 		EnvironmentLoader("CONFIG"),
 	))
+	assert.Equal(
+		expected, *out,
+		"Image was not loaded correctly",
+	)
+}
+
+func TestAnotherThing(t *testing.T) {
+	assert := assert.New(t)
+	out := new(RootType)
+	expected := RootType{
+		FieldA: "hello",
+		FieldB: 10,
+		FieldD: IntermediateA{
+			FieldE: "world",
+		},
+		FieldF: []IntermediateB{
+			{FieldG: "foo", FieldH: "bar"},
+			{FieldG: "baz"},
+		},
+	}
+	data, _ := os.ReadFile("./test.yaml")
+	mapData := make(map[string]any)
+
+	assert.NoError(yaml.Unmarshal(data, mapData), "Error loading data")
+	loader := mapLoader(mapData)
+	assert.NoError(GenericLoader(out, loader))
 	assert.Equal(
 		expected, *out,
 		"Image was not loaded correctly",
