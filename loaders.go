@@ -74,6 +74,45 @@ func queueSlice(stack *Stack, arrData []any, elem *StackFrame) {
 	return
 }
 
+type loader interface {
+	Init() error
+	SetFromNode(node reflect.Value) (reflect.Value, error)
+	Queue(node reflect.Value) ([]*StackFrame, error)
+	CanQueue(node reflect.Type) bool
+	CanRead(node reflect.Type) bool
+}
+
+func GenericLoader(target any, l loader) {
+	nodeStk := new(Stack)
+	frames, err := l.Queue(reflect.ValueOf(target).Elem())
+	for nodeStk.Size() > 0 {
+		elem := nodeStk.Pop()
+		if l.CanQueue(elem.typeOf) {
+			frames, err := l.Queue(nodeStk)
+			if err != nil {
+				panic(err)
+			}
+			for _, frame := range frames {
+				nodeStk.Push(frame)
+			}
+		}
+		if l.CanRead(elem.typeOf) {
+			l.SetFromNode(elem.valueOf, elem.tag)
+		}
+	}
+}
+
+/*
+- traverse the struct
+- for each field of the struct, tagged with config
+	- parse the field tag
+	- check the node type
+	- case string/int/settable:
+		- run setter
+	- case struct/arr:
+		- traverse nested struct
+*/
+
 func MapLoader(data map[string]any) Loader {
 	return func(dest any) (errs errorList) {
 		// This function should be called with a struct
