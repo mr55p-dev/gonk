@@ -6,7 +6,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func traverse(m any, tag tagData) (any, error) {
+func traverse(m any, tag Tag) (any, error) {
 	// Traverse the config file
 	head := m
 	for _, component := range tag.path {

@@ -21,7 +21,7 @@ func TestTraverseMap(t *testing.T) {
 	}
 	val, err := traverse(
 		testMap,
-		tagData{
+		Tag{
 			path: []any{
 				"nested_key_1",
 				"nested_key_2",
@@ -34,7 +34,7 @@ func TestTraverseMap(t *testing.T) {
 
 	val, err = traverse(
 		testMap,
-		tagData{
+		Tag{
 			path: []any{
 				"nested_key_1",
 				"nested_key_2",
@@ -58,7 +58,7 @@ func TestNoKeyTraverseMap(t *testing.T) {
 	}
 	val, err := traverse(
 		testMap,
-		tagData{
+		Tag{
 			path: []any{
 				"nested_value",
 				"nested_key_1",

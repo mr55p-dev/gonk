@@ -10,16 +10,16 @@ type tagOptions struct {
 	optional bool
 }
 
-type tagData struct {
+type Tag struct {
 	path    []any
 	options tagOptions
 }
 
-func (t tagData) Key() any {
+func (t Tag) Key() any {
 	return t.path[len(t.path)-1]
 }
 
-func (t tagData) String() string {
+func (t Tag) String() string {
 	arr := make([]string, len(t.path))
 	for i := 0; i < len(arr); i++ {
 		switch t.path[i].(type) {
@@ -32,15 +32,15 @@ func (t tagData) String() string {
 	return strings.Join(arr, ".")
 }
 
-func (t tagData) Push(component tagData) tagData {
-	return tagData{
+func (t Tag) Push(component Tag) Tag {
+	return Tag{
 		path:    append(t.path, component.path...),
 		options: component.options,
 	}
 }
 
-func parseConfigTag(config string) tagData {
-	data := tagData{}
+func parseConfigTag(config string) Tag {
+	data := Tag{}
 	v := strings.Split(config, ",")
 
 	if len(v) > 1 {
@@ -84,7 +84,7 @@ func LoadConfig(dest any, loaders ...Loader) error {
 
 type errorList []error
 
-func tagPathConcat(newTag tagData, prevKey string) tagData {
+func tagPathConcat(newTag Tag, prevKey string) Tag {
 	out := newTag
 	out.path = append(out.path, prevKey)
 	return out

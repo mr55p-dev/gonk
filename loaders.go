@@ -13,7 +13,7 @@ func nilLoaderFn(dest any) errorList {
 }
 
 type StackFrame struct {
-	tag     tagData
+	tag     Tag
 	valueOf reflect.Value
 
 	typeOf reflect.Type
@@ -75,14 +75,14 @@ func queueSlice(stack *Stack, arrData []any, elem *StackFrame) {
 }
 
 type loader interface {
-	Set(node reflect.Value, tag tagData) (reflect.Value, error)
-	Queue(node reflect.Value, tag tagData) ([]*StackFrame, error)
+	Set(node reflect.Value, tag Tag) (reflect.Value, error)
+	Queue(node reflect.Value, tag Tag) ([]*StackFrame, error)
 }
 
 type mapLoader map[string]any
 type envLoader string
 
-func (m mapLoader) Set(node reflect.Value, tag tagData) (reflect.Value, error) {
+func (m mapLoader) Set(node reflect.Value, tag Tag) (reflect.Value, error) {
 	zero := reflect.Zero(node.Type())
 	val, err := traverse(map[string]any(m), tag)
 	if err != nil || val == nil {
@@ -126,7 +126,7 @@ func (m mapLoader) Set(node reflect.Value, tag tagData) (reflect.Value, error) {
 // 	}
 // }
 
-func (m mapLoader) Queue(node reflect.Value, tag tagData) (out []*StackFrame, err error) {
+func (m mapLoader) Queue(node reflect.Value, tag Tag) (out []*StackFrame, err error) {
 	switch node.Kind() {
 	case reflect.Struct:
 		nodeType := node.Type()
@@ -148,7 +148,7 @@ func (m mapLoader) Queue(node reflect.Value, tag tagData) (out []*StackFrame, er
 		for i := 0; i < node.Len(); i++ {
 			frame := new(StackFrame)
 			frame.valueOf = node.Index(i)
-			frame.tag = tag.Push(tagData{
+			frame.tag = tag.Push(Tag{
 				path: []any{i},
 			})
 			out = append(out, frame)
@@ -164,7 +164,7 @@ func (m mapLoader) Queue(node reflect.Value, tag tagData) (out []*StackFrame, er
 func GenericLoader(target any, l loader) error {
 	errs := make(errorList, 0)
 	nodeStk := new(Stack)
-	frames, err := l.Queue(reflect.ValueOf(target), tagData{})
+	frames, err := l.Queue(reflect.ValueOf(target), Tag{})
 	if err != nil {
 		return err
 	}
@@ -211,7 +211,7 @@ func MapLoader(data map[string]any) Loader {
 			typeOf:  reflect.TypeOf(dest).Elem(),
 			valueOf: reflect.ValueOf(dest).Elem(),
 			data:    data,
-			tag:     tagData{},
+			tag:     Tag{},
 		}
 		stack.Push(initFrame)
 
@@ -281,7 +281,7 @@ func EnvironmentLoader(envPrefix string) Loader {
 		initFrame := &StackFrame{
 			typeOf:  reflect.TypeOf(dest).Elem(),
 			valueOf: reflect.ValueOf(dest).Elem(),
-			tag:     tagData{},
+			tag:     Tag{},
 		}
 		stack.Push(initFrame)
 
