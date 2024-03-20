@@ -33,17 +33,6 @@ func MapLoader(data map[string]any) Loader {
 				return errInvalidValue(tag.key)
 			}
 			fieldValue.SetInt(int64(value))
-		case reflect.Array:
-			value, ok := val.([]any)
-			if !ok {
-				return errInvalidValue(tag.key)
-			}
-			loader := MapLoader(data)
-			slice := reflect.MakeSlice(fieldType.Type, 0, len(value))
-			for _, item := range value {
-				itemVal := loader()
-				reflect.Append(slice, )
-			}
 		default:
 			return fmt.Errorf("Invalid field type")
 		}
