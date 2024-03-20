@@ -67,8 +67,8 @@ func LoadConfig(dest any, loaders ...Loader) error {
 
 type errorList []error
 
-func tagPathConcat(original tagData, parts []string) tagData {
-	out := original
-	out.path = append(parts, out.path...)
+func tagPathConcat(newTag tagData, prevKey string) tagData {
+	out := newTag
+	out.path = append(out.path, prevKey)
 	return out
 }

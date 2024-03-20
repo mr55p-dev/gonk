@@ -129,13 +129,8 @@ func TestSomething(t *testing.T) {
 			FieldE: "world",
 		},
 		FieldF: []IntermediateB{
-			{
-				FieldG: "foo",
-				FieldH: "bar",
-			},
-			{
-				FieldG: "baz",
-			},
+			{FieldG: "foo", FieldH: "bar"},
+			{FieldG: "baz"},
 		},
 	}
 	assert.NoError(LoadConfig(

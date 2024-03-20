@@ -54,6 +54,9 @@ func queueStruct(stack *Stack, data map[string]any, baseFrame *StackFrame) {
 			continue
 		}
 		frame.tag = parseConfigTag(tagRaw)
+		if baseFrame.tag.key != "" {
+			frame.tag = tagPathConcat(frame.tag, baseFrame.tag.key)
+		}
 		frame.data = data[frame.tag.key]
 		stack.Push(frame)
 	}
@@ -156,37 +159,46 @@ func EnvironmentLoader(envPrefix string) Loader {
 
 		for stack.Size() > 0 {
 			elem := stack.Pop()
-			tagSegments := []string{}
-			tagSegments = append(tagSegments, envPrefix)
-			tagSegments = append(tagSegments, elem.tag.path...)
-			tagSegments = append(tagSegments, elem.tag.key)
 
-			envName := strings.Join(tagSegments, "_")
-			envValue, ok := os.LookupEnv(envName)
-			if !ok {
-				errs = append(errs, errKeyNotPresent(elem.tag.key))
-				continue
-			}
 			switch elem.typeOf.Kind() {
 			case reflect.String:
+				tagSegments := []string{}
+				tagSegments = append(
+					tagSegments,
+					strings.ToUpper(envPrefix),
+				)
+				for _, v := range elem.tag.path {
+					tagSegments = append(
+						tagSegments,
+						strings.ToUpper(v),
+					)
+				}
+				tagSegments = append(
+					tagSegments,
+					strings.ToUpper(elem.tag.key),
+				)
+				envName := strings.Join(tagSegments, "_")
+				envValue, ok := os.LookupEnv(envName)
+				fmt.Println("Checking env var", envName)
+				if !ok {
+					errs = append(errs, errKeyNotPresent(elem.tag.key))
+					continue
+				}
 				elem.valueOf.SetString(envValue)
 			case reflect.Struct:
-				if !ok {
-					goto onError
-				}
 				structVal := reflect.New(elem.typeOf).Elem()
 				elem.valueOf.Set(structVal)
 				queueStruct(stack, nil, elem)
 			}
 			continue
-		onError:
-			if elem.data == nil {
-				if !elem.tag.options.optional {
-					errs = append(errs, errKeyNotPresent(elem.tag.key))
-				}
-			} else {
-				errs = append(errs, errInvalidValue(elem.tag.key))
-			}
+			// onError:
+			// 	if elem.data == nil {
+			// 		if !elem.tag.options.optional {
+			// 			errs = append(errs, errKeyNotPresent(elem.tag.key))
+			// 		}
+			// 	} else {
+			// 		errs = append(errs, errInvalidValue(elem.tag.key))
+			// 	}
 		}
 
 		return errs
