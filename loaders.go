@@ -3,9 +3,7 @@ package gonk
 import (
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
-	"strings"
 )
 
 type Loader func(dest any) errorList
@@ -44,26 +42,26 @@ func (s *Stack) Size() int {
 	return len(s.storage)
 }
 
-func queueStruct(stack *Stack, data map[string]any, baseFrame *StackFrame) {
-	for i := 0; i < baseFrame.typeOf.NumField(); i++ {
-		// Create a new stack frame
-		frame := new(StackFrame)
-		frame.typeOf = baseFrame.typeOf.Field(i).Type
-		frame.valueOf = baseFrame.valueOf.Field(i)
-		// Parse the field tag
-		tagRaw, ok := baseFrame.typeOf.Field(i).Tag.Lookup("config")
-		if !ok {
-			continue
-		}
-		frame.tag = parseConfigTag(tagRaw)
-		if baseFrame.tag.key != "" {
-			frame.tag = tagPathConcat(frame.tag, baseFrame.tag.key)
-		}
-		frame.data = data[frame.tag.key]
-		stack.Push(frame)
-	}
-	return
-}
+// func queueStruct(stack *Stack, data map[string]any, baseFrame *StackFrame) {
+// 	for i := 0; i < baseFrame.typeOf.NumField(); i++ {
+// 		// Create a new stack frame
+// 		frame := new(StackFrame)
+// 		frame.typeOf = baseFrame.typeOf.Field(i).Type
+// 		frame.valueOf = baseFrame.valueOf.Field(i)
+// 		// Parse the field tag
+// 		tagRaw, ok := baseFrame.typeOf.Field(i).Tag.Lookup("config")
+// 		if !ok {
+// 			continue
+// 		}
+// 		frame.tag = parseConfigTag(tagRaw)
+// 		if baseFrame.tag.kavafey != "" {
+// 			frame.tag = tagPathConcat(frame.tag, baseFrame.tag.key)
+// 		}
+// 		frame.data = data[frame.tag.key]
+// 		stack.Push(frame)
+// 	}
+// 	return
+// }
 
 func queueSlice(stack *Stack, arrData []any, elem *StackFrame) {
 	for idx, arrElem := range arrData {
@@ -78,7 +76,7 @@ func queueSlice(stack *Stack, arrData []any, elem *StackFrame) {
 
 type loader interface {
 	Set(node reflect.Value, tag tagData) (reflect.Value, error)
-	Queue(node reflect.Value) ([]*StackFrame, error)
+	Queue(node reflect.Value, tag tagData) ([]*StackFrame, error)
 }
 
 type mapLoader map[string]any
@@ -86,49 +84,49 @@ type envLoader string
 
 func (m mapLoader) Set(node reflect.Value, tag tagData) (reflect.Value, error) {
 	zero := reflect.Zero(node.Type())
+	val, err := traverse(map[string]any(m), tag)
+	if err != nil {
+		return zero, errKeyNotPresent(tag.String())
+	}
 	switch node.Kind() {
 	case reflect.String, reflect.Int:
-		val, err := traverseMap(m, tag.key, tag.path...)
-		if err != nil {
-			return zero, errKeyNotPresent(tag.key)
-		}
 		return reflect.ValueOf(val), nil
 	case reflect.Struct:
 		val := reflect.New(node.Type()).Elem()
 		return val, nil
 	case reflect.Slice:
-		val, err := traverseMap(m, tag.key, tag.path...)
+		val, err := traverse(map[string]any(m), tag)
 		if err != nil {
-			return zero, errKeyNotPresent(tag.key)
+			return zero, errKeyNotPresent(tag.String())
 		}
 		valSlice, ok := val.([]any)
 		if !ok {
-			return zero, errInvalidValue(tag.key)
+			return zero, errInvalidValue(tag.String())
 		}
 		slice := reflect.MakeSlice(node.Type(), len(valSlice), len(valSlice))
 		return slice, nil
 	case reflect.Pointer:
 		return m.Set(node.Elem(), tag)
 	default:
-		return zero, fmt.Errorf("Invalid type for key %s", tag.key)
+		return zero, fmt.Errorf("Invalid type for key %s", tag.String())
 	}
 }
 
-func (prefix envLoader) Set(node reflect.Value, tag tagData) (reflect.Value, error) {
-	zero := reflect.Zero(node.Type())
-	switch node.Kind() {
-	case reflect.String:
-		val := os.Getenv(tag.key)
-		return reflect.ValueOf(val), nil
-	case reflect.Struct:
-		val := reflect.New(node.Type()).Elem()
-		return val, nil
-	default:
-		return zero, fmt.Errorf("Invalid tkey type for key %s", tag.key)
-	}
-}
+// func (prefix envLoader) Set(node reflect.Value, tag tagData) (reflect.Value, error) {
+// 	zero := reflect.Zero(node.Type())
+// 	switch node.Kind() {
+// 	case reflect.String:
+// 		val := os.Getenv(tag.key)
+// 		return reflect.ValueOf(val), nil
+// 	case reflect.Struct:
+// 		val := reflect.New(node.Type()).Elem()
+// 		return val, nil
+// 	default:
+// 		return zero, fmt.Errorf("Invalid tkey type for key %s", tag.key)
+// 	}
+// }
 
-func (m mapLoader) Queue(node reflect.Value) (out []*StackFrame, err error) {
+func (m mapLoader) Queue(node reflect.Value, tag tagData) (out []*StackFrame, err error) {
 	switch node.Kind() {
 	case reflect.Struct:
 		nodeType := node.Type()
@@ -146,15 +144,17 @@ func (m mapLoader) Queue(node reflect.Value) (out []*StackFrame, err error) {
 		}
 		return
 	case reflect.Slice:
-		nodeType := node.Type()
-		nodeElemType := nodeType.Elem()
 		for i := 0; i < node.Len(); i++ {
 			frame := new(StackFrame)
 			frame.valueOf = node.Index(i)
-			frame.tag = 
+			frame.tag = tag.Push(tagData{
+				path: []any{i},
+			})
+			out = append(out, frame)
 		}
+		return
 	case reflect.Pointer:
-		return m.Queue(node.Elem())
+		return m.Queue(node.Elem(), tag)
 	default:
 		return
 	}
@@ -163,7 +163,7 @@ func (m mapLoader) Queue(node reflect.Value) (out []*StackFrame, err error) {
 func GenericLoader(target any, l loader) error {
 	errs := make(errorList, 0)
 	nodeStk := new(Stack)
-	frames, err := l.Queue(reflect.ValueOf(target))
+	frames, err := l.Queue(reflect.ValueOf(target), tagData{})
 	if err != nil {
 		return err
 	}
@@ -180,13 +180,13 @@ func GenericLoader(target any, l loader) error {
 		node.valueOf.Set(newVal)
 
 		// Queue new nodes from it if needed
-		frames, err := l.Queue(node.valueOf)
+		frames, err := l.Queue(node.valueOf, node.tag)
 		if err != nil {
 			errs = append(errs, err)
 			continue
 		}
 		for _, frame := range frames {
-			frame.tag = tagPathConcat(frame.tag, node.tag.key)
+			frame.tag = node.tag.Push(frame.tag)
 			nodeStk.Push(frame)
 		}
 	}
@@ -209,46 +209,46 @@ func MapLoader(data map[string]any) Loader {
 		stack.Push(initFrame)
 
 		for stack.Size() > 0 {
-			elem := stack.Pop()
-			switch elem.typeOf.Kind() {
-			case reflect.String:
-				strData, ok := elem.data.(string)
-				if !ok {
-					goto onError
-				}
-				elem.valueOf.SetString(strData)
-			case reflect.Int:
-				intData, ok := elem.data.(int)
-				if !ok {
-					goto onError
-				}
-				elem.valueOf.SetInt(int64(intData))
-			case reflect.Struct:
-				structData, ok := elem.data.(map[string]any)
-				if !ok {
-					goto onError
-				}
-				structVal := reflect.New(elem.typeOf).Elem()
-				elem.valueOf.Set(structVal)
-				queueStruct(stack, structData, elem)
-			case reflect.Slice:
-				sliceData, ok := elem.data.([]any)
-				if !ok {
-					goto onError
-				}
-				sliceVal := reflect.MakeSlice(elem.typeOf, len(sliceData), len(sliceData))
-				elem.valueOf.Set(sliceVal)
-				queueSlice(stack, sliceData, elem)
-			}
-			continue
-		onError:
-			if elem.data == nil {
-				if !elem.tag.options.optional {
-					errs = append(errs, errKeyNotPresent(elem.tag.key))
-				}
-			} else {
-				errs = append(errs, errInvalidValue(elem.tag.key))
-			}
+			// 	elem := stack.Pop()
+			// 	switch elem.typeOf.Kind() {
+			// 	case reflect.String:
+			// 		strData, ok := elem.data.(string)
+			// 		if !ok {
+			// 			goto onError
+			// 		}
+			// 		elem.valueOf.SetString(strData)
+			// 	case reflect.Int:
+			// 		intData, ok := elem.data.(int)
+			// 		if !ok {
+			// 			goto onError
+			// 		}
+			// 		elem.valueOf.SetInt(int64(intData))
+			// 	case reflect.Struct:
+			// 		structData, ok := elem.data.(map[string]any)
+			// 		if !ok {
+			// 			goto onError
+			// 		}
+			// 		structVal := reflect.New(elem.typeOf).Elem()
+			// 		elem.valueOf.Set(structVal)
+			// 		queueStruct(stack, structData, elem)
+			// 	case reflect.Slice:
+			// 		sliceData, ok := elem.data.([]any)
+			// 		if !ok {
+			// 			goto onError
+			// 		}
+			// 		sliceVal := reflect.MakeSlice(elem.typeOf, len(sliceData), len(sliceData))
+			// 		elem.valueOf.Set(sliceVal)
+			// 		queueSlice(stack, sliceData, elem)
+			// 	}
+			// 	continue
+			// onError:
+			// 	if elem.data == nil {
+			// 		if !elem.tag.options.optional {
+			// 			errs = append(errs, errKeyNotPresent(elem.tag.key))
+			// 		}
+			// 	} else {
+			// 		errs = append(errs, errInvalidValue(elem.tag.key))
+			// 	}
 		}
 
 		return errs
@@ -279,45 +279,45 @@ func EnvironmentLoader(envPrefix string) Loader {
 		stack.Push(initFrame)
 
 		for stack.Size() > 0 {
-			elem := stack.Pop()
-			switch elem.typeOf.Kind() {
-			case reflect.String:
-				tagSegments := []string{}
-				tagSegments = append(
-					tagSegments,
-					strings.ToUpper(envPrefix),
-				)
-				for _, v := range elem.tag.path {
-					tagSegments = append(
-						tagSegments,
-						strings.ToUpper(v),
-					)
-				}
-				tagSegments = append(
-					tagSegments,
-					strings.ToUpper(elem.tag.key),
-				)
-				envName := strings.Join(tagSegments, "_")
-				envValue, ok := os.LookupEnv(envName)
-				fmt.Println("Checking env var", envName)
-				if !ok {
-					goto onError
-				}
-				elem.valueOf.SetString(envValue)
-			case reflect.Struct:
-				structVal := reflect.New(elem.typeOf).Elem()
-				elem.valueOf.Set(structVal)
-				queueStruct(stack, nil, elem)
-			}
-			continue
-		onError:
-			if elem.data == nil {
-				if !elem.tag.options.optional {
-					errs = append(errs, errKeyNotPresent(elem.tag.key))
-				}
-			} else {
-				errs = append(errs, errInvalidValue(elem.tag.key))
-			}
+			// 	elem := stack.Pop()
+			// 	switch elem.typeOf.Kind() {
+			// 	case reflect.String:
+			// 		tagSegments := []string{}
+			// 		tagSegments = append(
+			// 			tagSegments,
+			// 			strings.ToUpper(envPrefix),
+			// 		)
+			// 		for _, v := range elem.tag.path {
+			// 			tagSegments = append(
+			// 				tagSegments,
+			// 				strings.ToUpper(v),
+			// 			)
+			// 		}
+			// 		tagSegments = append(
+			// 			tagSegments,
+			// 			strings.ToUpper(elem.tag.key),
+			// 		)
+			// 		envName := strings.Join(tagSegments, "_")
+			// 		envValue, ok := os.LookupEnv(envName)
+			// 		fmt.Println("Checking env var", envName)
+			// 		if !ok {
+			// 			goto onError
+			// 		}
+			// 		elem.valueOf.SetString(envValue)
+			// 	case reflect.Struct:
+			// 		structVal := reflect.New(elem.typeOf).Elem()
+			// 		elem.valueOf.Set(structVal)
+			// 		queueStruct(stack, nil, elem)
+			// 	}
+			// 	continue
+			// onError:
+			// 	if elem.data == nil {
+			// 		if !elem.tag.options.optional {
+			// 			errs = append(errs, errKeyNotPresent(elem.tag.key))
+			// 		}
+			// 	} else {
+			// 		errs = append(errs, errInvalidValue(elem.tag.key))
+			// 	}
 		}
 
 		return errs

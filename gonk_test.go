@@ -19,20 +19,28 @@ func TestTraverseMap(t *testing.T) {
 			},
 		},
 	}
-	val, err := traverseMap(
+	val, err := traverse(
 		testMap,
-		"nested_value",
-		"nested_key_1",
-		"nested_key_2",
+		tagData{
+			path: []any{
+				"nested_key_1",
+				"nested_key_2",
+				"nested_value",
+			},
+		},
 	)
-	assert.Nil(err, "there should be no error")
+	assert.NoError(err)
 	assert.Equal("nested_value", val, "key should be nested_value")
 
-	val, err = traverseMap(
+	val, err = traverse(
 		testMap,
-		"nested_int",
-		"nested_key_1",
-		"nested_key_2",
+		tagData{
+			path: []any{
+				"nested_key_1",
+				"nested_key_2",
+				"nested_int",
+			},
+		},
 	)
 	assert.Nil(err)
 	assert.Equal(val, 2)
@@ -48,11 +56,15 @@ func TestNoKeyTraverseMap(t *testing.T) {
 			},
 		},
 	}
-	val, err := traverseMap(
+	val, err := traverse(
 		testMap,
-		"nested_value",
-		"nested_key_1",
-		"nested_key_2",
+		tagData{
+			path: []any{
+				"nested_value",
+				"nested_key_1",
+				"nested_key_2",
+			},
+		},
 	)
 	assert.ErrorContains(err, "nested_value")
 	assert.IsType(&KeyNotPresent{}, err)
@@ -87,9 +99,8 @@ func TestParseTag(t *testing.T) {
 	assert := assert.New(t)
 	config := "path.segment.key"
 	tag := parseConfigTag(config)
-	assert.Equal("key", tag.key)
-	assert.Equal([]string{"path", "segment"}, tag.path)
-	assert.Equal(config, tag.config)
+	assert.Equal("key", tag.Key())
+	assert.Equal([]any{"path", "segment", "key"}, tag.path)
 	assert.False(tag.options.optional)
 }
 
@@ -97,9 +108,8 @@ func TestParseTagOptional(t *testing.T) {
 	assert := assert.New(t)
 	config := "path.segment.key,optional"
 	tag := parseConfigTag(config)
-	assert.Equal("key", tag.key)
-	assert.Equal([]string{"path", "segment"}, tag.path)
-	assert.Equal(config, tag.config)
+	assert.Equal("key", tag.Key())
+	assert.Equal([]any{"path", "segment", "key"}, tag.path)
 	assert.True(tag.options.optional)
 }
 

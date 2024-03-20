@@ -2,6 +2,7 @@ package gonk
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -10,35 +11,60 @@ type tagOptions struct {
 }
 
 type tagData struct {
-	config  string
-	key     string
-	path    []string
+	path    []any
 	options tagOptions
 }
 
-func parseTagOptions(opts []string) tagOptions {
-	out := tagOptions{}
-	for _, v := range opts {
-		switch v {
-		case "optional":
-			out.optional = true
+func (t tagData) Key() any {
+	return t.path[len(t.path)-1]
+}
+
+func (t tagData) String() string {
+	arr := make([]string, len(t.path))
+	for i := 0; i < len(arr); i++ {
+		switch t.path[i].(type) {
+		case string:
+			arr[i] = t.path[i].(string)
+		case int:
+			arr[i] = fmt.Sprintf("[%d]", t.path[i].(int))
 		}
 	}
-	return out
+	return strings.Join(arr, ".")
+}
+
+func (t tagData) Push(component tagData) tagData {
+	return tagData{
+		path:    append(t.path, component.path...),
+		options: component.options,
+	}
+}
+
+func (t tagData) Pop() (any, tagData) {
+	if len(t.path) == 0 {
+		return nil, tagData{}
+	}
+	return t.path[len(t.path)-1], tagData{
+		path: t.path,
+	}
 }
 
 func parseConfigTag(config string) tagData {
-	data := tagData{
-		config: config,
-	}
+	data := tagData{}
 	v := strings.Split(config, ",")
+
 	if len(v) > 1 {
-		data.options = parseTagOptions(v[1:])
+		for _, opt := range v[1:] {
+			switch opt {
+			case "optional":
+				data.options.optional = true
+			}
+		}
 	}
 
 	path := strings.Split(v[0], ".")
-	data.key = path[len(path)-1]
-	data.path = path[:len(path)-1]
+	for _, str := range path {
+		data.path = append(data.path, str)
+	}
 	return data
 }
 

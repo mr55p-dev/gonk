@@ -6,21 +6,28 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func traverseMap(target map[string]any, key string, segments ...string) (any, error) {
+func traverse(m any, tag tagData) (any, error) {
 	// Traverse the config file
-	configFileKey := target
-	for _, segment := range segments {
-		var ok bool
-		configFileKey, ok = configFileKey[segment].(map[string]any)
-		if !ok {
-			return nil, errKeyNotPresent(key)
+	head := m
+	for _, component := range tag.path {
+		switch component.(type) {
+		case string:
+			// head must be a map
+			headMap, ok := head.(map[string]any)
+			if !ok {
+				return nil, errKeyNotPresent(tag.String())
+			}
+			head = headMap[component.(string)]
+		case int:
+			// head must be an array
+			headSlice, ok := head.([]any)
+			if !ok {
+				return nil, errKeyNotPresent(tag.String())
+			}
+			head = headSlice[component.(int)]
 		}
 	}
-	value, ok := configFileKey[key]
-	if !ok {
-		return nil, errKeyNotPresent(key)
-	}
-	return value, nil
+	return head, nil
 }
 
 func loadYamlFile(filename string) (map[string]any, error) {
