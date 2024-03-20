@@ -1,32 +1,26 @@
 package gonk
 
 import (
-	"fmt"
 	"os"
 
 	"gopkg.in/yaml.v3"
 )
 
-func traverseMap[T string | int](dest *T, target map[string]any, key string, segments ...string) error {
+func traverseMap(target map[string]any, key string, segments ...string) (any, error) {
 	// Traverse the config file
 	configFileKey := target
 	for _, segment := range segments {
 		var ok bool
 		configFileKey, ok = configFileKey[segment].(map[string]any)
 		if !ok {
-			return errKeyNotPresent(key)
+			return nil, errKeyNotPresent(key)
 		}
 	}
 	value, ok := configFileKey[key]
 	if !ok {
-		return errKeyNotPresent(key)
+		return nil, errKeyNotPresent(key)
 	}
-	castedValue, ok := value.(T)
-	if !ok {
-		return fmt.Errorf("Invalid type for variable %v", value)
-	}
-	(*dest) = castedValue
-	return nil
+	return value, nil
 }
 
 func loadYamlFile(filename string) (map[string]any, error) {

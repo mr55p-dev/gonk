@@ -46,46 +46,87 @@ func parseConfigTag(config string) tagData {
 func LoadConfig(dest any, loaders ...Loader) error {
 	var err error
 	defer func() {
-		if v := recover(); v != nil {
-			err = fmt.Errorf("Panic generated while loading config: %v", v)
+		if msg := recover(); msg != nil {
+			fmt.Println("Something paniced", msg)
+			err = fmt.Errorf("Panic generated: %s", msg)
 		}
 	}()
-	valueOf := reflect.ValueOf(dest).Elem()
+
+	// for each loader, do some loading
+	for idx, loader := range loaders {
+		errs := make(map[string]error)
+		applyLoader(loader, dest, errs)
+
+		// handle errors
+		for _, err := range errs {
+			switch err.(type) {
+			case *KeyNotPresent:
+				if idx == len(loaders)-1 {
+					return err
+				}
+			default:
+				return err
+			}
+		}
+		return nil
+	}
+
+	return err
+}
+
+type errors map[string]error
+
+func tagPathConcat(original tagData, parts []string) tagData {
+	out := original
+	out.path = append(parts, out.path...)
+	return out
+}
+
+func applyLoader(fn Loader, dest any, errs errors, prefix ...string) {
+	valueOf := reflect.ValueOf(dest)
+	for valueOf.Kind() == reflect.Pointer {
+		valueOf = valueOf.Elem()
+	}
 	typeOf := valueOf.Type()
-	for i := 0; i < typeOf.NumField(); i++ {
+
+	if typeOf.Kind() != reflect.Struct {
+		panic("Applying loader on non-struct type")
+	}
+
+	for i := 0; i < valueOf.NumField(); i++ {
+		var err error
 		fieldType := typeOf.Field(i)
 		fieldValue := valueOf.Field(i)
-		config := fieldType.Tag.Get("config")
-		if config == "" {
+		tagRaw, ok := fieldType.Tag.Lookup("config")
+		if !ok {
 			continue
 		}
-		tag := parseConfigTag(config)
 
-		isLoaded := false
-		for _, loader := range loaders {
-			err = loader(fieldType, fieldValue, tag)
-			if err != nil {
-				if _, keyMissing := err.(*KeyNotPresent); keyMissing {
-					continue
-				} else {
-					return fmt.Errorf("Error loading %s: %s", config, err.Error())
-				}
-			} else {
-				isLoaded = true
-			}
+		tagParsed := parseConfigTag(tagRaw)
+		tagParsed = tagPathConcat(tagParsed, prefix)
+		switch fieldType.Type.Kind() {
+		case reflect.Struct:
+			newValuePtr := reflect.New(fieldType.Type)
+			applyLoader(
+				fn,
+				newValuePtr.Interface(),
+				errs,
+				tagParsed.key,
+			)
+			fieldValue.Set(newValuePtr.Elem())
+		case reflect.Array:
+			
+		case reflect.String, reflect.Int:
+			err = fn(fieldType, fieldValue, tagParsed)
+		default:
+
 		}
-
-		if err != nil { // check any errors after loading
-			_, keyMissing := err.(*KeyNotPresent)
-			if keyMissing {
-				if isLoaded { // we have already loaded the key
-					continue
-				} else if tag.options.optional { // field is marked as optional
-					continue
-				}
+		if err != nil {
+			if _, ok := err.(*KeyNotPresent); ok && tagParsed.options.optional {
+				continue
+			} else {
+				errs[tagParsed.config] = err
 			}
-			return err // all other cases should fall through and error
 		}
 	}
-	return nil
 }

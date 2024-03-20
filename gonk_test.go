@@ -17,9 +17,7 @@ func TestTraverseMap(t *testing.T) {
 			},
 		},
 	}
-	var val string
-	err := traverseMap[string](
-		&val,
+	val, err := traverseMap(
 		testMap,
 		"nested_value",
 		"nested_key_1",
@@ -28,16 +26,14 @@ func TestTraverseMap(t *testing.T) {
 	assert.Nil(err, "there should be no error")
 	assert.Equal("nested_value", val, "key should be nested_value")
 
-	var intVal int
-	err = traverseMap[int](
-		&intVal,
+	val, err = traverseMap(
 		testMap,
 		"nested_int",
 		"nested_key_1",
 		"nested_key_2",
 	)
 	assert.Nil(err)
-	assert.Equal(intVal, 2)
+	assert.Equal(val, 2)
 }
 
 func TestNoKeyTraverseMap(t *testing.T) {
@@ -50,9 +46,7 @@ func TestNoKeyTraverseMap(t *testing.T) {
 			},
 		},
 	}
-	var val string
-	err := traverseMap[string](
-		&val,
+	val, err := traverseMap(
 		testMap,
 		"nested_value",
 		"nested_key_1",
@@ -105,4 +99,31 @@ func TestParseTagOptional(t *testing.T) {
 	assert.Equal([]string{"path", "segment"}, tag.path)
 	assert.Equal(config, tag.config)
 	assert.True(tag.options.optional)
+}
+
+type ContainerConfig struct {
+	Img string `config:"image"`
+	Ecr string `config:"ecr,optional"`
+	Tag string `config:"tag"`
+}
+
+type AppConfig struct {
+	Name        string          `config:"name"`
+	Environment string          `config:"environment"`
+	Container   ContainerConfig `config:"container"`
+}
+
+func TestSomething(t *testing.T) {
+	assert := assert.New(t)
+	out := new(AppConfig)
+	err := LoadConfig(
+		out,
+		FileLoader("../splat/example.dev.yaml", false),
+	)
+	assert.Nil(err)
+	assert.Equal(
+		"example",
+		out.Container.Img,
+		"Image was not loaded correctly",
+	)
 }

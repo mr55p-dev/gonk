@@ -1,6 +1,7 @@
 package gonk
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -12,32 +13,28 @@ func nilLoaderFn(fieldType reflect.StructField, fieldValue reflect.Value, tag ta
 	return nil
 }
 
-func MapLoader(configFile map[string]any) Loader {
+func MapLoader(data map[string]any) Loader {
 	return func(fieldType reflect.StructField, fieldValue reflect.Value, tag tagData) error {
 		// Set the value
+		val, err := traverseMap(data, tag.key, tag.path...)
+		if err != nil {
+			return err
+		}
 		switch fieldType.Type.Kind() {
 		case reflect.String:
-			var value string
-			err := traverseMap[string](&value, configFile, tag.key, tag.path...)
-			if err != nil {
-				if _, isPresent := err.(*KeyNotPresent); isPresent {
-					return err
-				} else {
-					return err
-				}
+			value, ok := val.(string)
+			if !ok {
+				return errInvalidValue(tag.key)
 			}
 			fieldValue.SetString(value)
 		case reflect.Int:
-			var value int
-			err := traverseMap[int](&value, configFile, tag.key, tag.path...)
-			if err != nil {
-				if _, isPresent := err.(*KeyNotPresent); isPresent {
-					return err
-				} else {
-					return err
-				}
+			value, ok := val.(int)
+			if !ok {
+				return errInvalidValue(tag.key)
 			}
 			fieldValue.SetInt(int64(value))
+		default:
+			return fmt.Errorf("Invalid field type")
 		}
 		return nil
 	}
