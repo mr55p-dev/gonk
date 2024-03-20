@@ -40,12 +40,7 @@ func (s *Stack) Size() int {
 	return len(s.storage)
 }
 
-func queueStruct(stack *Stack, errs errors, baseFrame *StackFrame) {
-	data, ok := baseFrame.data.(map[string]any)
-	if !ok {
-		errs[baseFrame.tag.key] = errInvalidValue(baseFrame.tag.key)
-		panic("Cannot add to queue")
-	}
+func queueStruct(stack *Stack, data map[string]any, errs errors, baseFrame *StackFrame) {
 	for i := 0; i < baseFrame.typeOf.NumField(); i++ {
 		// Create a new stack frame
 		frame := new(StackFrame)
@@ -85,6 +80,7 @@ func MapLoader(data map[string]any) Loader {
 				strData, ok := elem.data.(string)
 				if !ok {
 					errs[elem.tag.key] = errInvalidValue(elem.tag.key)
+					continue
 				}
 				elem.valueOf.SetString(strData)
 				fmt.Printf("Setting %s to %s\n", elem.typeOf.Name(), strData)
@@ -92,14 +88,39 @@ func MapLoader(data map[string]any) Loader {
 				intData, ok := elem.data.(int)
 				if !ok {
 					errs[elem.tag.key] = errInvalidValue(elem.tag.key)
+					continue
 				}
 				elem.valueOf.SetInt(int64(intData))
 			case reflect.Struct:
-				// Allocate a new struct of the type
-				structPtr := reflect.New(elem.typeOf)
-				structVal := structPtr.Elem()
+				structData, ok := elem.data.(map[string]any)
+				if !ok {
+					errs[elem.tag.key] = errInvalidValue(elem.tag.key)
+				}
+				structVal := reflect.New(elem.typeOf).Elem()
 				elem.valueOf.Set(structVal)
-				queueStruct(stack, errs, elem)
+				queueStruct(stack, structData, errs, elem)
+			case reflect.Slice:
+				arrData, ok := elem.data.([]any)
+				if !ok {
+					errs[elem.tag.key] = errInvalidValue(elem.tag.key)
+					continue
+				}
+				// Allocate a new array of the type
+				newSlice := reflect.MakeSlice(
+					elem.typeOf,
+					len(arrData),
+					len(arrData),
+				)
+				elem.valueOf.Set(newSlice)
+				for idx, arrElem := range arrData {
+					newFrame := new(StackFrame)
+					newFrame.data = arrElem
+					newFrame.typeOf = elem.typeOf.Elem()
+					newFrame.valueOf = newSlice.Index(idx)
+
+					stack.Push(newFrame)
+				}
+				fmt.Printf("newSlice.Interface(): %v\n", newSlice.Interface())
 			}
 		}
 

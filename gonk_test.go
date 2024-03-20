@@ -111,6 +111,7 @@ type AppConfig struct {
 	Name        string          `config:"name"`
 	Environment string          `config:"environment"`
 	Container   ContainerConfig `config:"container"`
+	Volumes     []string        `config:"volumes"`
 }
 
 func TestSomething(t *testing.T) {
@@ -125,5 +126,10 @@ func TestSomething(t *testing.T) {
 		"example",
 		out.Container.Img,
 		"Image was not loaded correctly",
+	)
+	assert.ElementsMatch(
+		[]string{"hello", "world"},
+		out.Volumes,
+		"Array was not loaded succesfully",
 	)
 }
