@@ -103,7 +103,7 @@ func TestParseTagOptional(t *testing.T) {
 
 type ContainerConfig struct {
 	Img string `config:"image"`
-	Ecr string `config:"ecr,optional"`
+	// Ecr string `config:"ecr,optional"`
 	Tag string `config:"tag"`
 }
 
