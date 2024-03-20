@@ -147,7 +147,6 @@ func TestSomethingElse(t *testing.T) {
 	assert := assert.New(t)
 	out := new(RootType)
 	os.Setenv("CONFIG_FIELDA", "hello")
-	os.Setenv("CONFIG_FIELDC", "hello")
 	os.Setenv("CONFIG_FIELDD_FIELDE", "world")
 
 	expected := RootType{

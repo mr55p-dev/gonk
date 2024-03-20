@@ -85,7 +85,6 @@ func MapLoader(data map[string]any) Loader {
 			tag:     tagData{},
 		}
 		stack.Push(initFrame)
-		fmt.Printf("data: %+v\n", data)
 
 		for stack.Size() > 0 {
 			elem := stack.Pop()
@@ -159,7 +158,6 @@ func EnvironmentLoader(envPrefix string) Loader {
 
 		for stack.Size() > 0 {
 			elem := stack.Pop()
-
 			switch elem.typeOf.Kind() {
 			case reflect.String:
 				tagSegments := []string{}
@@ -181,8 +179,7 @@ func EnvironmentLoader(envPrefix string) Loader {
 				envValue, ok := os.LookupEnv(envName)
 				fmt.Println("Checking env var", envName)
 				if !ok {
-					errs = append(errs, errKeyNotPresent(elem.tag.key))
-					continue
+					goto onError
 				}
 				elem.valueOf.SetString(envValue)
 			case reflect.Struct:
@@ -191,14 +188,14 @@ func EnvironmentLoader(envPrefix string) Loader {
 				queueStruct(stack, nil, elem)
 			}
 			continue
-			// onError:
-			// 	if elem.data == nil {
-			// 		if !elem.tag.options.optional {
-			// 			errs = append(errs, errKeyNotPresent(elem.tag.key))
-			// 		}
-			// 	} else {
-			// 		errs = append(errs, errInvalidValue(elem.tag.key))
-			// 	}
+		onError:
+			if elem.data == nil {
+				if !elem.tag.options.optional {
+					errs = append(errs, errKeyNotPresent(elem.tag.key))
+				}
+			} else {
+				errs = append(errs, errInvalidValue(elem.tag.key))
+			}
 		}
 
 		return errs
