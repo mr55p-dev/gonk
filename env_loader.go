@@ -10,6 +10,10 @@ import (
 
 type EnvLoader string
 
+func NewEnvLoader(envPrefix string) Loader {
+	return EnvLoader(envPrefix)
+}
+
 func (prefix EnvLoader) Set(node reflect.Value, tag Tag) (reflect.Value, error) {
 	// Always create structs
 	if node.Kind() == reflect.Struct {

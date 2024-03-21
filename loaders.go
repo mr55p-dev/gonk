@@ -60,7 +60,7 @@ func applyLoader(target any, l Loader) errorList {
 		newVal, err := l.Set(node.valueOf, node.tag)
 		if err != nil {
 			switch err.(type) {
-			case *KeyNotPresent:
+			case KeyNotPresent:
 				if !node.tag.options.optional {
 					errs = append(errs, err)
 				}
@@ -86,19 +86,7 @@ func applyLoader(target any, l Loader) errorList {
 	return errs
 }
 
-func NewMapLoader(data map[string]any) Loader {
-	return MapLoader(data)
-}
-
 func FileLoader(configFile string) Loader {
-	file, err := loadYamlFile(configFile)
-	if err != nil {
-	} else {
-		panic(err)
-	}
-	return NewMapLoader(file)
-}
-
-func NewEnvLoader(envPrefix string) Loader {
-	return EnvLoader(envPrefix)
+	// file, err := loadYamlFile(configFile)
+	return NewMapLoader(make(map[string]any))
 }

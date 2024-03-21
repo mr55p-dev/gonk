@@ -1,74 +1,8 @@
 package gonk
 
-import (
-	"errors"
-	"fmt"
-	"strings"
-)
+import "errors"
 
-type tagOptions struct {
-	optional bool
-}
-
-type Tag struct {
-	path    []any
-	options tagOptions
-}
-
-func (t Tag) Key() any {
-	return t.path[len(t.path)-1]
-}
-
-func (t Tag) String() string {
-	arr := make([]string, len(t.path))
-	for i := 0; i < len(arr); i++ {
-		switch t.path[i].(type) {
-		case string:
-			arr[i] = t.path[i].(string)
-		case int:
-			arr[i] = fmt.Sprintf("[%d]", t.path[i].(int))
-		}
-	}
-	return strings.Join(arr, ".")
-}
-
-func (t Tag) Push(component Tag) Tag {
-	return Tag{
-		path:    append(t.path, component.path...),
-		options: component.options,
-	}
-}
-
-func (t Tag) NamedKeys() []string {
-	out := make([]string, 0)
-	for _, val := range t.path {
-		v, ok := val.(string)
-		if ok {
-			out = append(out, v)
-		}
-	}
-	return out
-}
-
-func parseConfigTag(config string) Tag {
-	data := Tag{}
-	v := strings.Split(config, ",")
-
-	if len(v) > 1 {
-		for _, opt := range v[1:] {
-			switch opt {
-			case "optional":
-				data.options.optional = true
-			}
-		}
-	}
-
-	path := strings.Split(v[0], ".")
-	for _, str := range path {
-		data.path = append(data.path, str)
-	}
-	return data
-}
+type errorList []error
 
 func LoadConfig(dest any, loaders ...Loader) error {
 	// for each loader, do some loading
@@ -91,12 +25,4 @@ func LoadConfig(dest any, loaders ...Loader) error {
 	}
 
 	return errors.Join(validErrors...)
-}
-
-type errorList []error
-
-func tagPathConcat(newTag Tag, prevKey string) Tag {
-	out := newTag
-	out.path = append(out.path, prevKey)
-	return out
 }
