@@ -1,3 +1,25 @@
+// Package gonk is a configuration loader
+// It can be used to import configuration from yaml files and environment variables currently. Given a struct pointer
+// tagged with `config:"name"` fields or a slice, [LoadConfig] can be used to load values from the [Loader]s into the
+// struct.
+//
+//	type Example struct { Field1 string `config:"1"` Field2 string `config:"anotherVar"` } func main() { config :=
+//	new(Example) err := LoadConfig(config, EnvLoader("prefix")) }
+//
+// In this example, gonk will look for environment variables named `PREFIX_1` and `PREFIX_ANOTHERVAR`. Field tags may be
+// more complex. The syntax is:
+//
+//	pattern: { [ path components ]... tag [ ,options ] }
+//
+//	path components: allows for defining nested keys by specifying the path components separated with a '.'.
+//
+//	tag: name of the key to lookup by the loader. Loaders may concatenate previous path components into the name they
+//	look up (ie environment loader will prefix all path components, upper cased and separated with an '_').
+//
+//	options: optional	specifies if the key can be omitted by a specific loader.
+//
+// When specifying multiple loaders, a key must be present in at least one loader in order for the config to be loaded
+// succesfully, unless the field is marked as optional.
 package gonk
 
 import (
@@ -11,6 +33,10 @@ type Loader interface {
 	GetValue(node reflect.Value, tag Tag) error
 }
 
+// LoadConfig loads configuration into a struct pointer or slice. Pass one or more loaders as arguments to provide
+// sources to load from. Loaders will be applied in the order given here. Produces a joined error containing all errors
+// encountered whilst loading, or nil if the loading was succesfull. Missing fields marked as optional will not be
+// reported as errors.
 func LoadConfig(dest any, loaders ...Loader) error {
 	// for each loader, do some loading
 	validErrors := make(errorList, 0)
