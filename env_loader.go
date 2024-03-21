@@ -1,7 +1,6 @@
 package gonk
 
 import (
-	"fmt"
 	"os"
 	"reflect"
 	"strconv"
@@ -14,31 +13,33 @@ func NewEnvLoader(envPrefix string) Loader {
 	return EnvLoader(envPrefix)
 }
 
-func (prefix EnvLoader) Set(node reflect.Value, tag Tag) (reflect.Value, error) {
+func (prefix EnvLoader) GetValue(node reflect.Value, tag Tag) error {
 	// Always create structs
 	if node.Kind() == reflect.Struct {
 		val := reflect.New(node.Type()).Elem()
-		return val, nil
+		node.Set(val)
+		return nil
 	}
 
 	// Handle actual values
-	zero := reflect.Zero(node.Type())
 	tagParts := tag.NamedKeys()
 	val, ok := os.LookupEnv(prefix.ToEnv(tagParts))
 	if !ok {
-		return zero, errKeyNotPresent(tag, prefix)
+		return errValueNotPresent(tag, prefix)
 	}
 	switch node.Kind() {
 	case reflect.String:
-		return reflect.ValueOf(val), nil
+		node.Set(reflect.ValueOf(val))
+		return nil
 	case reflect.Int:
 		intVal, err := strconv.Atoi(val)
 		if err != nil {
-			return zero, errInvalidValue(tag, prefix)
+			return errInvalidValue(tag, prefix)
 		}
-		return reflect.ValueOf(intVal), nil
+		node.Set(reflect.ValueOf(intVal))
+		return nil
 	default:
-		return zero, fmt.Errorf("Invalid key type for key %s", tag)
+		return errValueNotSupported(tag, prefix)
 	}
 }
 

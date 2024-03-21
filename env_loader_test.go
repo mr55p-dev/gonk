@@ -1,6 +1,7 @@
 package gonk
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -32,4 +33,28 @@ func TestGetEnvNameWithPrefix(t *testing.T) {
 		tag := parseConfigTag(input)
 		assert.Equal(expected, loader.ToEnv(tag.NamedKeys()))
 	}
+}
+
+func TestEnvLoader(t *testing.T) {
+	assert := assert.New(t)
+	out := new(RootType)
+	os.Setenv("CONFIG_FIELDA", "hello")
+	os.Setenv("CONFIG_FIELDB", "10")
+	os.Setenv("CONFIG_FIELDD_FIELDE", "world")
+
+	expected := RootType{
+		FieldA: "hello",
+		FieldB: 10,
+		FieldD: IntermediateA{
+			FieldE: "world",
+		},
+	}
+	assert.NoError(LoadConfig(
+		out,
+		NewEnvLoader("CONFIG"),
+	))
+	assert.Equal(
+		expected, *out,
+		"Image was not loaded correctly",
+	)
 }

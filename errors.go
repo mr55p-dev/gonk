@@ -6,12 +6,17 @@ import (
 )
 
 type (
-	KeyNotPresent string
-	InvalidKey    string
-	InvalidValue  string
+	ValueNotPresent   string
+	ValueNotSupported string
+	InvalidKey        string
+	InvalidValue      string
 )
 
-func (msg KeyNotPresent) Error() string {
+func (msg ValueNotPresent) Error() string {
+	return string(msg)
+}
+
+func (msg ValueNotSupported) Error() string {
 	return string(msg)
 }
 
@@ -28,8 +33,12 @@ func formatError(key Tag, loader Loader, msg string) string {
 	return fmt.Sprintf("Error: %s; Loader %s; Key: %s\n", msg, name, key)
 }
 
-func errKeyNotPresent(key Tag, ldr Loader) KeyNotPresent {
-	return KeyNotPresent(formatError(key, ldr, "Key not found"))
+func errValueNotPresent(key Tag, ldr Loader) ValueNotPresent {
+	return ValueNotPresent(formatError(key, ldr, "Key not found"))
+}
+
+func errValueNotSupported(key Tag, ldr Loader) ValueNotSupported {
+	return ValueNotSupported(formatError(key, ldr, "Expected value of this key is not supported by this loader"))
 }
 
 func errInvalidKey(key Tag, ldr Loader) InvalidKey {

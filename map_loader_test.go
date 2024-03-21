@@ -62,6 +62,36 @@ func TestNoKeyTraverseMap(t *testing.T) {
 		},
 	)
 	assert.ErrorContains(err, "nested_value")
-	assert.IsType(KeyNotPresent(""), err)
+	assert.IsType(ValueNotPresent(""), err)
 	assert.Zero(val)
+}
+
+func TestMapLoader(t *testing.T) {
+	assert := assert.New(t)
+	out := new(RootType)
+	expected := RootType{
+		FieldA: "hello",
+		FieldB: 10,
+		FieldD: IntermediateA{
+			FieldE: "world",
+		},
+		FieldF: []IntermediateB{
+			{FieldG: "foo", FieldH: "bar"},
+			{FieldG: "baz"},
+		},
+	}
+
+	inp := MapLoader(map[string]any{
+		"fieldA": "hello",
+		"fieldB": 10,
+		"fieldD": map[string]any{
+			"fieldE": "world",
+		},
+		"fieldF": []any{
+			map[string]any{"fieldG": "foo", "fieldH": "bar"},
+			map[string]any{"fieldG": "baz"},
+		},
+	})
+	assert.NoError(LoadConfig(out, inp))
+	assert.Equal(expected, *out)
 }

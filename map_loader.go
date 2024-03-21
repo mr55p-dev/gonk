@@ -1,11 +1,7 @@
 package gonk
 
 import (
-	"fmt"
-	"os"
 	"reflect"
-
-	"gopkg.in/yaml.v3"
 )
 
 type MapLoader map[string]any
@@ -14,30 +10,35 @@ func NewMapLoader(data map[string]any) Loader {
 	return MapLoader(data)
 }
 
-func (m MapLoader) Set(node reflect.Value, tag Tag) (reflect.Value, error) {
-	zero := reflect.Zero(node.Type())
+func (m MapLoader) GetValue(node reflect.Value, tag Tag) error {
 	val, err := m.traverse(tag)
+	var out reflect.Value
 	if err != nil || val == nil {
-		return zero, errKeyNotPresent(tag, m)
+		return errValueNotPresent(tag, m)
 	}
 	switch node.Kind() {
 	case reflect.String, reflect.Int:
-		return reflect.ValueOf(val), nil
+		out = reflect.ValueOf(val)
 	case reflect.Struct:
-		val := reflect.New(node.Type()).Elem()
-		return val, nil
+		out = reflect.New(node.Type()).Elem()
 	case reflect.Slice:
-		valSlice, ok := val.([]any)
-		if !ok {
-			return zero, errInvalidValue(tag, m)
+		var sliceLen int
+		switch val := val.(type) {
+		case []any:
+			sliceLen = len(val)
+		case []map[string]any:
+			sliceLen = len(val)
+		default:
+			return errInvalidValue(tag, m)
 		}
-		slice := reflect.MakeSlice(node.Type(), len(valSlice), len(valSlice))
-		return slice, nil
+		out = reflect.MakeSlice(node.Type(), sliceLen, sliceLen)
 	case reflect.Pointer:
-		return m.Set(node.Elem(), tag)
+		return m.GetValue(node.Elem(), tag)
 	default:
-		return zero, fmt.Errorf("Invalid type for key %s", tag)
+		return errValueNotSupported(tag, m)
 	}
+	node.Set(out)
+	return nil
 }
 
 func (m MapLoader) traverse(tag Tag) (any, error) {
@@ -49,30 +50,17 @@ func (m MapLoader) traverse(tag Tag) (any, error) {
 			// head must be a map
 			headMap, ok := head.(map[string]any)
 			if !ok {
-				return nil, errKeyNotPresent(tag, m)
+				return nil, errValueNotPresent(tag, m)
 			}
 			head = headMap[component.(string)]
 		case int:
 			// head must be an array
 			headSlice, ok := head.([]any)
 			if !ok {
-				return nil, errKeyNotPresent(tag, m)
+				return nil, errValueNotPresent(tag, m)
 			}
 			head = headSlice[component.(int)]
 		}
 	}
 	return head, nil
-}
-
-func loadYamlFile(filename string) (map[string]any, error) {
-	out := make(map[string]any)
-	file, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	err = yaml.Unmarshal(file, &out)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
