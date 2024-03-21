@@ -1,132 +1,112 @@
 package gonk
 
 import (
-	"fmt"
+	"errors"
 	"reflect"
-	"strings"
 )
 
-type tagOptions struct {
-	optional bool
-}
+type errorList []error
 
-type tagData struct {
-	config  string
-	key     string
-	path    []string
-	options tagOptions
-}
-
-func parseTagOptions(opts []string) tagOptions {
-	out := tagOptions{}
-	for _, v := range opts {
-		switch v {
-		case "optional":
-			out.optional = true
-		}
-	}
-	return out
-}
-
-func parseConfigTag(config string) tagData {
-	data := tagData{
-		config: config,
-	}
-	v := strings.Split(config, ",")
-	if len(v) > 1 {
-		data.options = parseTagOptions(v[1:])
-	}
-
-	path := strings.Split(v[0], ".")
-	data.key = path[len(path)-1]
-	data.path = path[:len(path)-1]
-	return data
+type Loader interface {
+	GetValue(node reflect.Value, tag Tag) error
 }
 
 func LoadConfig(dest any, loaders ...Loader) error {
-	var err error
-	defer func() {
-		if msg := recover(); msg != nil {
-			fmt.Println("Something paniced", msg)
-			err = fmt.Errorf("Panic generated: %s", msg)
-		}
-	}()
-
 	// for each loader, do some loading
-	for idx, loader := range loaders {
-		errs := make(map[string]error)
-		applyLoader(loader, dest, errs)
-
-		// handle errors
+	validErrors := make(errorList, 0)
+	for idx, ldr := range loaders {
+		errs := applyLoader(dest, ldr)
 		for _, err := range errs {
 			switch err.(type) {
-			case *KeyNotPresent:
+			case *ValueNotPresent:
 				if idx == len(loaders)-1 {
-					return err
+					validErrors = append(validErrors, err)
 				}
 			default:
-				return err
+				validErrors = append(validErrors, err)
 			}
 		}
+	}
+	if len(validErrors) == 0 {
 		return nil
 	}
 
-	return err
+	return errors.Join(validErrors...)
 }
 
-type errors map[string]error
-
-func tagPathConcat(original tagData, parts []string) tagData {
-	out := original
-	out.path = append(parts, out.path...)
-	return out
-}
-
-func applyLoader(fn Loader, dest any, errs errors, prefix ...string) {
-	valueOf := reflect.ValueOf(dest)
-	for valueOf.Kind() == reflect.Pointer {
-		valueOf = valueOf.Elem()
-	}
-	typeOf := valueOf.Type()
-
-	if typeOf.Kind() != reflect.Struct {
-		panic("Applying loader on non-struct type")
-	}
-
-	for i := 0; i < valueOf.NumField(); i++ {
-		var err error
-		fieldType := typeOf.Field(i)
-		fieldValue := valueOf.Field(i)
-		tagRaw, ok := fieldType.Tag.Lookup("config")
-		if !ok {
-			continue
-		}
-
-		tagParsed := parseConfigTag(tagRaw)
-		tagParsed = tagPathConcat(tagParsed, prefix)
-		switch fieldType.Type.Kind() {
-		case reflect.Struct:
-			newValuePtr := reflect.New(fieldType.Type)
-			applyLoader(
-				fn,
-				newValuePtr.Interface(),
-				errs,
-				tagParsed.key,
-			)
-			fieldValue.Set(newValuePtr.Elem())
-		case reflect.Array:
-			
-		case reflect.String, reflect.Int:
-			err = fn(fieldType, fieldValue, tagParsed)
-		default:
-
-		}
-		if err != nil {
-			if _, ok := err.(*KeyNotPresent); ok && tagParsed.options.optional {
+func queueNode(node reflect.Value, tag Tag) (out []*Node, err error) {
+	switch node.Kind() {
+	case reflect.Struct:
+		nodeType := node.Type()
+		for i := 0; i < nodeType.NumField(); i++ {
+			newFrame := new(Node)
+			fieldType := nodeType.Field(i)
+			tagRaw, ok := fieldType.Tag.Lookup("config")
+			if !ok {
 				continue
-			} else {
-				errs[tagParsed.config] = err
+			}
+
+			newFrame.valueOf = node.Field(i)
+			newFrame.tag = parseConfigTag(tagRaw)
+			newFrame.tag = tag.Push(newFrame.tag)
+			out = append(out, newFrame)
+		}
+		return
+	case reflect.Slice:
+		for i := 0; i < node.Len(); i++ {
+			frame := new(Node)
+			frame.valueOf = node.Index(i)
+			frame.tag = tag.Push(Tag{
+				path: []any{i},
+			})
+			out = append(out, frame)
+		}
+		return
+	case reflect.Pointer:
+		return queueNode(node.Elem(), tag)
+	default:
+		return
+	}
+}
+
+func applyLoader(target any, l Loader) errorList {
+	errs := make(errorList, 0)
+	nodeStk := new(Stack)
+	frames, err := queueNode(reflect.ValueOf(target), Tag{})
+	if err != nil {
+		errs = append(errs, err)
+		return errs
+	}
+	for _, v := range frames {
+		nodeStk.Push(v)
+	}
+	for nodeStk.Size() > 0 {
+		node := nodeStk.Pop()
+		// Set the nodes value
+		err := l.GetValue(node.valueOf, node.tag)
+		if err != nil {
+			switch err.(type) {
+			case ValueNotPresent:
+				if !node.tag.options.optional {
+					errs = append(errs, err)
+				}
+			default:
+				errs = append(errs, err)
 			}
 		}
+
+		// Queue new nodes from it if needed
+		frames, err := queueNode(node.valueOf, node.tag)
+		if err != nil {
+			errs = append(errs, err)
+			continue
+		}
+		for _, frame := range frames {
+			nodeStk.Push(frame)
+		}
 	}
+	if len(errs) == 0 {
+		return nil
+	}
+	return errs
 }

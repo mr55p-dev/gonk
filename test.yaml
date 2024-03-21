@@ -1,0 +1,9 @@
+---
+fieldA: hello
+fieldB: 10
+fieldD:
+  fieldE: world
+fieldF:
+  - fieldG: foo
+    fieldH: bar
+  - fieldG: baz
