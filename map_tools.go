@@ -6,23 +6,23 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func traverse(m any, tag Tag) (any, error) {
+func traverse(m MapLoader, tag Tag) (any, error) {
 	// Traverse the config file
-	head := m
+	head := any(m)
 	for _, component := range tag.path {
 		switch component.(type) {
 		case string:
 			// head must be a map
 			headMap, ok := head.(map[string]any)
 			if !ok {
-				return nil, errKeyNotPresent(tag.String())
+				return nil, errKeyNotPresent(tag, m)
 			}
 			head = headMap[component.(string)]
 		case int:
 			// head must be an array
 			headSlice, ok := head.([]any)
 			if !ok {
-				return nil, errKeyNotPresent(tag.String())
+				return nil, errKeyNotPresent(tag, m)
 			}
 			head = headSlice[component.(int)]
 		}

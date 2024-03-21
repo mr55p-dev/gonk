@@ -73,9 +73,9 @@ func parseConfigTag(config string) Tag {
 func LoadConfig(dest any, loaders ...Loader) error {
 	// for each loader, do some loading
 	validErrors := make(errorList, 0)
-	for _, loader := range loaders {
-		errs := loader(dest)
-		for idx, err := range errs {
+	for idx, ldr := range loaders {
+		errs := applyLoader(dest, ldr)
+		for _, err := range errs {
 			switch err.(type) {
 			case *KeyNotPresent:
 				if idx == len(loaders)-1 {

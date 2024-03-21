@@ -67,7 +67,7 @@ func TestNoKeyTraverseMap(t *testing.T) {
 		},
 	)
 	assert.ErrorContains(err, "nested_value")
-	assert.IsType(&KeyNotPresent{}, err)
+	assert.IsType(KeyNotPresent(""), err)
 	assert.Zero(val)
 }
 
@@ -79,10 +79,10 @@ func TestGetEnvName(t *testing.T) {
 		"key_with-mixed":  "KEY_WITH_MIXED",
 		"path.key-name":   "PATH_KEY_NAME",
 	}
-	loader := envLoader("")
+	loader := EnvLoader("")
 	for input, expected := range tests {
 		tag := parseConfigTag(input)
-		assert.Equal(expected, loader.getEnvName(tag))
+		assert.Equal(expected, loader.ToEnv(tag.NamedKeys()))
 	}
 }
 
@@ -92,10 +92,10 @@ func TestGetEnvNameWithPrefix(t *testing.T) {
 		"key":           "XYZ_KEY",
 		"path.key-name": "XYZ_PATH_KEY_NAME",
 	}
-	loader := envLoader("xyz")
+	loader := EnvLoader("xyz")
 	for input, expected := range tests {
 		tag := parseConfigTag(input)
-		assert.Equal(expected, loader.getEnvName(tag))
+		assert.Equal(expected, loader.ToEnv(tag.NamedKeys()))
 	}
 }
 
@@ -134,51 +134,51 @@ type RootType struct {
 	FieldF []IntermediateB `config:"fieldF,optional"`
 }
 
-// func TestSomething(t *testing.T) {
-// 	assert := assert.New(t)
-// 	out := new(RootType)
-// 	expected := RootType{
-// 		FieldA: "hello",
-// 		FieldB: 10,
-// 		FieldD: IntermediateA{
-// 			FieldE: "world",
-// 		},
-// 		FieldF: []IntermediateB{
-// 			{FieldG: "foo", FieldH: "bar"},
-// 			{FieldG: "baz"},
-// 		},
-// 	}
-// 	assert.NoError(LoadConfig(
-// 		out,
-// 		FileLoader("./test.yaml", false),
-// 	))
-// 	assert.Equal(
-// 		expected, *out,
-// 		"Image was not loaded correctly",
-// 	)
-// }
-//
-// func TestSomethingElse(t *testing.T) {
-// 	assert := assert.New(t)
-// 	out := new(RootType)
-// 	os.Setenv("CONFIG_FIELDA", "hello")
-// 	os.Setenv("CONFIG_FIELDD_FIELDE", "world")
-//
-// 	expected := RootType{
-// 		FieldA: "hello",
-// 		FieldD: IntermediateA{
-// 			FieldE: "world",
-// 		},
-// 	}
-// 	assert.NoError(LoadConfig(
-// 		out,
-// 		EnvironmentLoader("CONFIG"),
-// 	))
-// 	assert.Equal(
-// 		expected, *out,
-// 		"Image was not loaded correctly",
-// 	)
-// }
+func TestSomething(t *testing.T) {
+	assert := assert.New(t)
+	out := new(RootType)
+	expected := RootType{
+		FieldA: "hello",
+		FieldB: 10,
+		FieldD: IntermediateA{
+			FieldE: "world",
+		},
+		FieldF: []IntermediateB{
+			{FieldG: "foo", FieldH: "bar"},
+			{FieldG: "baz"},
+		},
+	}
+	assert.NoError(LoadConfig(
+		out,
+		FileLoader("./test.yaml"),
+	))
+	assert.Equal(
+		expected, *out,
+		"Image was not loaded correctly",
+	)
+}
+
+func TestSomethingElse(t *testing.T) {
+	assert := assert.New(t)
+	out := new(RootType)
+	os.Setenv("CONFIG_FIELDA", "hello")
+	os.Setenv("CONFIG_FIELDD_FIELDE", "world")
+
+	expected := RootType{
+		FieldA: "hello",
+		FieldD: IntermediateA{
+			FieldE: "world",
+		},
+	}
+	assert.NoError(LoadConfig(
+		out,
+		NewEnvLoader("CONFIG"),
+	))
+	assert.Equal(
+		expected, *out,
+		"Image was not loaded correctly",
+	)
+}
 
 func TestAnotherThing(t *testing.T) {
 	assert := assert.New(t)
@@ -198,8 +198,9 @@ func TestAnotherThing(t *testing.T) {
 	mapData := make(map[string]any)
 
 	assert.NoError(yaml.Unmarshal(data, mapData), "Error loading data")
-	loader := mapLoader(mapData)
-	assert.NoError(applyLoader(out, loader))
+	loader := MapLoader(mapData)
+	errors := applyLoader(out, loader)
+	assert.Empty(errors)
 	assert.Equal(
 		expected, *out,
 		"Image was not loaded correctly",
