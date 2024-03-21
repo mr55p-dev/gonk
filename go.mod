@@ -1,4 +1,4 @@
-module github.com/mr55p-dev/gonk
+module github.com/mr55p-dev/gonk/v1.0.1
 
 go 1.22.0
 
