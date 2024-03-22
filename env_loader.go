@@ -7,13 +7,15 @@ import (
 	"strings"
 )
 
+// EnvLoader will load configuration from environment variables. Supports only string and int types.
+// Does not support loading slice elements. Nested data will concatenate all previous path elements
+// into one env name, separated by '_'. If the undeerlying string is not "", this will be used as
+// a prefix. The entire name is uppercased.
+// string
 type EnvLoader string
 
-func NewEnvLoader(envPrefix string) Loader {
-	return EnvLoader(envPrefix)
-}
-
-func (prefix EnvLoader) GetValue(node reflect.Value, tag Tag) error {
+// Load is called internally by gonk to load a value at each node.
+func (prefix EnvLoader) Load(node reflect.Value, tag tagData) error {
 	// Always create structs
 	if node.Kind() == reflect.Struct {
 		val := reflect.New(node.Type()).Elem()
@@ -23,7 +25,7 @@ func (prefix EnvLoader) GetValue(node reflect.Value, tag Tag) error {
 
 	// Handle actual values
 	tagParts := tag.NamedKeys()
-	val, ok := os.LookupEnv(prefix.ToEnv(tagParts))
+	val, ok := os.LookupEnv(prefix.toEnv(tagParts))
 	if !ok {
 		return errValueNotPresent(tag, prefix)
 	}
@@ -43,7 +45,7 @@ func (prefix EnvLoader) GetValue(node reflect.Value, tag Tag) error {
 	}
 }
 
-func (prefix EnvLoader) ToEnv(parts []string) string {
+func (prefix EnvLoader) toEnv(parts []string) string {
 	replacer := strings.NewReplacer(
 		"-", "_",
 		".", "_",

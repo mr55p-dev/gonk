@@ -9,16 +9,21 @@ type tagOptions struct {
 	optional bool
 }
 
-type Tag struct {
+type tagData struct {
 	path    []any
 	options tagOptions
 }
 
-func (t Tag) Key() any {
+// Key returns the topmost element of the path
+func (t tagData) Key() any {
+	if len(t.path) == 0 {
+		return nil
+	}
 	return t.path[len(t.path)-1]
 }
 
-func (t Tag) String() string {
+// String returns a string representation of the entire path
+func (t tagData) String() string {
 	arr := make([]string, len(t.path))
 	for i := 0; i < len(arr); i++ {
 		switch t.path[i].(type) {
@@ -31,14 +36,16 @@ func (t Tag) String() string {
 	return strings.Join(arr, ".")
 }
 
-func (t Tag) Push(component Tag) Tag {
-	return Tag{
+// Push merges the path of two tags, adding the argument as a path on top of the existing one. Does not update any existing tags
+func (t tagData) Push(component tagData) tagData {
+	return tagData{
 		path:    append(t.path, component.path...),
 		options: component.options,
 	}
 }
 
-func (t Tag) NamedKeys() []string {
+// NamedKeys returns only the object components of the path
+func (t tagData) NamedKeys() []string {
 	out := make([]string, 0)
 	for _, val := range t.path {
 		v, ok := val.(string)
@@ -49,8 +56,8 @@ func (t Tag) NamedKeys() []string {
 	return out
 }
 
-func parseConfigTag(config string) Tag {
-	data := Tag{}
+func parseConfigTag(config string) tagData {
+	data := tagData{}
 	v := strings.Split(config, ",")
 
 	if len(v) > 1 {
@@ -69,7 +76,7 @@ func parseConfigTag(config string) Tag {
 	return data
 }
 
-func tagPathConcat(newTag Tag, prevKey string) Tag {
+func tagPathConcat(newTag tagData, prevKey string) tagData {
 	out := newTag
 	out.path = append(out.path, prevKey)
 	return out

@@ -18,7 +18,7 @@ func TestTraverseMap(t *testing.T) {
 		},
 	})
 	val, err := testMap.traverse(
-		Tag{
+		tagData{
 			path: []any{
 				"nested_key_1",
 				"nested_key_2",
@@ -30,7 +30,7 @@ func TestTraverseMap(t *testing.T) {
 	assert.Equal("nested_value", val, "key should be nested_value")
 
 	val, err = testMap.traverse(
-		Tag{
+		tagData{
 			path: []any{
 				"nested_key_1",
 				"nested_key_2",
@@ -53,7 +53,7 @@ func TestNoKeyTraverseMap(t *testing.T) {
 		},
 	})
 	val, err := testMap.traverse(
-		Tag{
+		tagData{
 			path: []any{
 				"nested_value",
 				"nested_key_1",

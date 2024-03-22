@@ -1,16 +1,13 @@
 package gonk
 
-import (
-	"reflect"
-)
+import "reflect"
 
+// MapLoader wraps a map[string]any to allow loading data from it into a struct. For a given key or
+// key path it will traverse the map to the matching node, unwrap the type and set it
 type MapLoader map[string]any
 
-func NewMapLoader(data map[string]any) Loader {
-	return MapLoader(data)
-}
-
-func (m MapLoader) GetValue(node reflect.Value, tag Tag) error {
+// Load is called when getting values from a node. It assigns a value to the passed reflect.Value, based on the tag data given.
+func (m MapLoader) Load(node reflect.Value, tag tagData) error {
 	val, err := m.traverse(tag)
 	var out reflect.Value
 	if err != nil || val == nil {
@@ -33,7 +30,7 @@ func (m MapLoader) GetValue(node reflect.Value, tag Tag) error {
 		}
 		out = reflect.MakeSlice(node.Type(), sliceLen, sliceLen)
 	case reflect.Pointer:
-		return m.GetValue(node.Elem(), tag)
+		return m.Load(node.Elem(), tag)
 	default:
 		return errValueNotSupported(tag, m)
 	}
@@ -41,7 +38,7 @@ func (m MapLoader) GetValue(node reflect.Value, tag Tag) error {
 	return nil
 }
 
-func (m MapLoader) traverse(tag Tag) (any, error) {
+func (m MapLoader) traverse(tag tagData) (any, error) {
 	// Traverse the config file
 	head := any(map[string]any(m))
 	for _, component := range tag.path {

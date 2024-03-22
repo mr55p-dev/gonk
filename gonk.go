@@ -3,8 +3,15 @@
 // tagged with `config:"name"` fields or a slice, [LoadConfig] can be used to load values from the [Loader]s into the
 // struct.
 //
-//	type Example struct { Field1 string `config:"1"` Field2 string `config:"anotherVar"` } func main() { config :=
-//	new(Example) err := LoadConfig(config, EnvLoader("prefix")) }
+//	type Example struct {
+//		Field1 string `config:"1"`
+//	    Field2 string `config:"anotherVar"`
+//	}
+//
+//	func main() {
+//	    config :=new(Example)
+//	    err := LoadConfig(config, EnvLoader("prefix"))
+//	}
 //
 // In this example, gonk will look for environment variables named `PREFIX_1` and `PREFIX_ANOTHERVAR`. Field tags may be
 // more complex. The syntax is:
@@ -30,7 +37,7 @@ import (
 type errorList []error
 
 type Loader interface {
-	GetValue(node reflect.Value, tag Tag) error
+	Load(node reflect.Value, tag tagData) error
 }
 
 // LoadConfig loads configuration into a struct pointer or slice. Pass one or more loaders as arguments to provide
@@ -60,12 +67,12 @@ func LoadConfig(dest any, loaders ...Loader) error {
 	return errors.Join(validErrors...)
 }
 
-func queueNode(node reflect.Value, tag Tag) (out []*Node, err error) {
+func queueNode(node reflect.Value, tag tagData) (out []*nodeFrame, err error) {
 	switch node.Kind() {
 	case reflect.Struct:
 		nodeType := node.Type()
 		for i := 0; i < nodeType.NumField(); i++ {
-			newFrame := new(Node)
+			newFrame := new(nodeFrame)
 			fieldType := nodeType.Field(i)
 			tagRaw, ok := fieldType.Tag.Lookup("config")
 			if !ok {
@@ -80,9 +87,9 @@ func queueNode(node reflect.Value, tag Tag) (out []*Node, err error) {
 		return
 	case reflect.Slice:
 		for i := 0; i < node.Len(); i++ {
-			frame := new(Node)
+			frame := new(nodeFrame)
 			frame.valueOf = node.Index(i)
-			frame.tag = tag.Push(Tag{
+			frame.tag = tag.Push(tagData{
 				path: []any{i},
 			})
 			out = append(out, frame)
@@ -97,19 +104,19 @@ func queueNode(node reflect.Value, tag Tag) (out []*Node, err error) {
 
 func applyLoader(target any, l Loader) errorList {
 	errs := make(errorList, 0)
-	nodeStk := new(Stack)
-	frames, err := queueNode(reflect.ValueOf(target), Tag{})
+	nodeStk := new(stack)
+	frames, err := queueNode(reflect.ValueOf(target), tagData{})
 	if err != nil {
 		errs = append(errs, err)
 		return errs
 	}
 	for _, v := range frames {
-		nodeStk.Push(v)
+		nodeStk.push(v)
 	}
-	for nodeStk.Size() > 0 {
-		node := nodeStk.Pop()
+	for nodeStk.size() > 0 {
+		node := nodeStk.pop()
 		// Set the nodes value
-		err := l.GetValue(node.valueOf, node.tag)
+		err := l.Load(node.valueOf, node.tag)
 		if err != nil {
 			switch err.(type) {
 			case ValueNotPresent:
@@ -128,7 +135,7 @@ func applyLoader(target any, l Loader) errorList {
 			continue
 		}
 		for _, frame := range frames {
-			nodeStk.Push(frame)
+			nodeStk.push(frame)
 		}
 	}
 	if len(errs) == 0 {

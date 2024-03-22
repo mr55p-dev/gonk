@@ -18,7 +18,7 @@ func TestGetEnvName(t *testing.T) {
 	loader := EnvLoader("")
 	for input, expected := range tests {
 		tag := parseConfigTag(input)
-		assert.Equal(expected, loader.ToEnv(tag.NamedKeys()))
+		assert.Equal(expected, loader.toEnv(tag.NamedKeys()))
 	}
 }
 
@@ -31,7 +31,7 @@ func TestGetEnvNameWithPrefix(t *testing.T) {
 	loader := EnvLoader("xyz")
 	for input, expected := range tests {
 		tag := parseConfigTag(input)
-		assert.Equal(expected, loader.ToEnv(tag.NamedKeys()))
+		assert.Equal(expected, loader.toEnv(tag.NamedKeys()))
 	}
 }
 
@@ -51,7 +51,7 @@ func TestEnvLoader(t *testing.T) {
 	}
 	assert.NoError(LoadConfig(
 		out,
-		NewEnvLoader("CONFIG"),
+		EnvLoader("CONFIG"),
 	))
 	assert.Equal(
 		expected, *out,

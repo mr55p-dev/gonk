@@ -2,20 +2,20 @@ package gonk
 
 import "reflect"
 
-type Node struct {
-	tag     Tag
+type nodeFrame struct {
+	tag     tagData
 	valueOf reflect.Value
 }
 
-type Stack struct {
-	storage []*Node
+type stack struct {
+	storage []*nodeFrame
 }
 
-func (s *Stack) Push(frame *Node) {
+func (s *stack) push(frame *nodeFrame) {
 	s.storage = append(s.storage, frame)
 }
 
-func (s *Stack) Pop() *Node {
+func (s *stack) pop() *nodeFrame {
 	if len(s.storage) == 0 {
 		return nil
 	}
@@ -25,6 +25,6 @@ func (s *Stack) Pop() *Node {
 	return out
 }
 
-func (s *Stack) Size() int {
+func (s *stack) size() int {
 	return len(s.storage)
 }
