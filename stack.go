@@ -11,8 +11,8 @@ type stack struct {
 	storage []*nodeFrame
 }
 
-func (s *stack) push(frame *nodeFrame) {
-	s.storage = append(s.storage, frame)
+func (s *stack) push(frame ...*nodeFrame) {
+	s.storage = append(s.storage, frame...)
 }
 
 func (s *stack) pop() *nodeFrame {

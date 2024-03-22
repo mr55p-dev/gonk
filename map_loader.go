@@ -7,11 +7,11 @@ import "reflect"
 type MapLoader map[string]any
 
 // Load is called when getting values from a node. It assigns a value to the passed reflect.Value, based on the tag data given.
-func (m MapLoader) Load(node reflect.Value, tag tagData) error {
+func (m MapLoader) Load(node reflect.Value, tag tagData) (reflect.Value, error) {
 	val, err := m.traverse(tag)
 	var out reflect.Value
 	if err != nil || val == nil {
-		return errValueNotPresent(tag, m)
+		return reflect.Value{}, errValueNotPresent(tag, m)
 	}
 	switch node.Kind() {
 	case reflect.String, reflect.Int:
@@ -26,16 +26,15 @@ func (m MapLoader) Load(node reflect.Value, tag tagData) error {
 		case []map[string]any:
 			sliceLen = len(val)
 		default:
-			return errInvalidValue(tag, m)
+			return reflect.Value{}, errInvalidValue(tag, m)
 		}
 		out = reflect.MakeSlice(node.Type(), sliceLen, sliceLen)
 	case reflect.Pointer:
 		return m.Load(node.Elem(), tag)
 	default:
-		return errValueNotSupported(tag, m)
+		return reflect.Value{}, errValueNotSupported(tag, m)
 	}
-	node.Set(out)
-	return nil
+	return out, nil
 }
 
 func (m MapLoader) traverse(tag tagData) (any, error) {
