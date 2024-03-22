@@ -47,11 +47,12 @@ type Loader interface {
 func LoadConfig(dest any, loaders ...Loader) error {
 	// for each loader, do some loading
 	validErrors := make(errorList, 0)
+	loaded := make(map[string]bool)
 	for idx, ldr := range loaders {
-		errs := applyLoader(dest, ldr)
+		errs := applyLoader(dest, ldr, loaded)
 		for _, err := range errs {
 			switch err.(type) {
-			case *ValueNotPresent:
+			case ValueNotPresent:
 				if idx == len(loaders)-1 {
 					validErrors = append(validErrors, err)
 				}
@@ -102,7 +103,7 @@ func queueNode(node reflect.Value, tag tagData) (out []*nodeFrame, err error) {
 	}
 }
 
-func applyLoader(target any, l Loader) errorList {
+func applyLoader(target any, l Loader, loaded map[string]bool) errorList {
 	errs := make(errorList, 0)
 	nodeStk := new(stack)
 	frames, err := queueNode(reflect.ValueOf(target), tagData{})
@@ -115,18 +116,21 @@ func applyLoader(target any, l Loader) errorList {
 	}
 	for nodeStk.size() > 0 {
 		node := nodeStk.pop()
-		// Set the nodes value
 		err := l.Load(node.valueOf, node.tag)
 		if err != nil {
+			// do not try to load more fields if there is no value for this one in our data structure
 			switch err.(type) {
 			case ValueNotPresent:
-				if !node.tag.options.optional {
+				if !node.tag.options.optional && !loaded[node.tag.String()] {
 					errs = append(errs, err)
 				}
 			default:
 				errs = append(errs, err)
 			}
+			continue
 		}
+
+		loaded[node.tag.String()] = true
 
 		// Queue new nodes from it if needed
 		frames, err := queueNode(node.valueOf, node.tag)
