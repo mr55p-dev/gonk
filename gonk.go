@@ -31,40 +31,92 @@ package gonk
 
 import (
 	"errors"
+	"fmt"
 	"reflect"
 )
 
 type errorList []error
 
 type Loader interface {
-	Load(node reflect.Value, tag tagData) error
+	Load(node reflect.Value, tag tagData) (reflect.Value, error)
 }
+
+type loadState int
+
+const (
+	loadRequired loadState = iota
+	loadOptional
+	loadComplete
+)
 
 // LoadConfig loads configuration into a struct pointer or slice. Pass one or more loaders as arguments to provide
 // sources to load from. Loaders will be applied in the order given here. Produces a joined error containing all errors
 // encountered whilst loading, or nil if the loading was succesfull. Missing fields marked as optional will not be
 // reported as errors.
 func LoadConfig(dest any, loaders ...Loader) error {
-	// for each loader, do some loading
-	validErrors := make(errorList, 0)
-	for idx, ldr := range loaders {
-		errs := applyLoader(dest, ldr)
-		for _, err := range errs {
-			switch err.(type) {
-			case *ValueNotPresent:
-				if idx == len(loaders)-1 {
-					validErrors = append(validErrors, err)
-				}
-			default:
-				validErrors = append(validErrors, err)
+	loaded := make(map[string]loadState)
+	val := reflect.ValueOf(dest)
+	missingValues := make([]error, 0)
+
+	// Setup queue of nodes to fetch and init with all the values passed in
+	nodeStk := new(stack)
+	frames, err := queueNode(val, tagData{})
+	if err != nil {
+		return err
+	}
+	nodeStk.push(frames...)
+
+	// Empty the queue of nodes
+	for nodeStk.size() > 0 {
+		node := nodeStk.pop()
+		nodeId := node.tag.String()
+		if node.tag.options.optional {
+			loaded[nodeId] = loadOptional
+		} else {
+			loaded[nodeId] = loadRequired
+		}
+
+		// Try to load the value
+		err := applyLoaders(node, nodeId, loaded, loaders...)
+		if err != nil {
+			return err
+		}
+
+		// Check to see if any of the loaders succeeded, but only if the value is required
+		if loaded[nodeId] == loadRequired {
+			missingValues = append(missingValues, ValueNotPresentError(
+				fmt.Sprintf("No value in any loader for %s", nodeId),
+			))
+		}
+
+		// Queue up the next set of nodes
+		frames, err := queueNode(node.valueOf, node.tag)
+		if err != nil {
+			return err
+		}
+		nodeStk.push(frames...)
+	}
+	if len(missingValues) > 0 {
+		return errors.Join(missingValues...)
+	}
+	return nil
+}
+
+func applyLoaders(node *nodeFrame, nodeId string, loaded map[string]loadState, loaders ...Loader) error {
+	for _, loader := range loaders {
+		res, err := loader.Load(node.valueOf, node.tag)
+		if err != nil {
+			// exit on errors, except value not present, which we skip
+			if err, ok := err.(ValueNotPresentError); !ok {
+				return err
+			} else {
+				continue
 			}
 		}
+		node.valueOf.Set(res)
+		loaded[nodeId] = loadComplete
 	}
-	if len(validErrors) == 0 {
-		return nil
-	}
-
-	return errors.Join(validErrors...)
+	return nil
 }
 
 func queueNode(node reflect.Value, tag tagData) (out []*nodeFrame, err error) {
@@ -100,46 +152,4 @@ func queueNode(node reflect.Value, tag tagData) (out []*nodeFrame, err error) {
 	default:
 		return
 	}
-}
-
-func applyLoader(target any, l Loader) errorList {
-	errs := make(errorList, 0)
-	nodeStk := new(stack)
-	frames, err := queueNode(reflect.ValueOf(target), tagData{})
-	if err != nil {
-		errs = append(errs, err)
-		return errs
-	}
-	for _, v := range frames {
-		nodeStk.push(v)
-	}
-	for nodeStk.size() > 0 {
-		node := nodeStk.pop()
-		// Set the nodes value
-		err := l.Load(node.valueOf, node.tag)
-		if err != nil {
-			switch err.(type) {
-			case ValueNotPresent:
-				if !node.tag.options.optional {
-					errs = append(errs, err)
-				}
-			default:
-				errs = append(errs, err)
-			}
-		}
-
-		// Queue new nodes from it if needed
-		frames, err := queueNode(node.valueOf, node.tag)
-		if err != nil {
-			errs = append(errs, err)
-			continue
-		}
-		for _, frame := range frames {
-			nodeStk.push(frame)
-		}
-	}
-	if len(errs) == 0 {
-		return nil
-	}
-	return errs
 }

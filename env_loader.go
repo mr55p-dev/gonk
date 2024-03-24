@@ -15,33 +15,29 @@ import (
 type EnvLoader string
 
 // Load is called internally by gonk to load a value at each node.
-func (prefix EnvLoader) Load(node reflect.Value, tag tagData) error {
+func (prefix EnvLoader) Load(node reflect.Value, tag tagData) (reflect.Value, error) {
 	// Always create structs
 	if node.Kind() == reflect.Struct {
-		val := reflect.New(node.Type()).Elem()
-		node.Set(val)
-		return nil
+		return reflect.New(node.Type()).Elem(), nil
 	}
 
 	// Handle actual values
 	tagParts := tag.NamedKeys()
 	val, ok := os.LookupEnv(prefix.toEnv(tagParts))
 	if !ok {
-		return errValueNotPresent(tag, prefix)
+		return reflect.Value{}, errValueNotPresent(tag, prefix)
 	}
 	switch node.Kind() {
 	case reflect.String:
-		node.Set(reflect.ValueOf(val))
-		return nil
+		return reflect.ValueOf(val), nil
 	case reflect.Int:
 		intVal, err := strconv.Atoi(val)
 		if err != nil {
-			return errInvalidValue(tag, prefix)
+			return reflect.Value{}, errInvalidValue(tag, prefix)
 		}
-		node.Set(reflect.ValueOf(intVal))
-		return nil
+		return reflect.ValueOf(intVal), nil
 	default:
-		return errValueNotSupported(tag, prefix)
+		return reflect.Value{}, errValueNotSupported(tag, prefix)
 	}
 }
 

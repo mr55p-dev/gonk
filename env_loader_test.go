@@ -1,7 +1,6 @@
 package gonk
 
 import (
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -38,9 +37,9 @@ func TestGetEnvNameWithPrefix(t *testing.T) {
 func TestEnvLoader(t *testing.T) {
 	assert := assert.New(t)
 	out := new(RootType)
-	os.Setenv("CONFIG_FIELDA", "hello")
-	os.Setenv("CONFIG_FIELDB", "10")
-	os.Setenv("CONFIG_FIELDD_FIELDE", "world")
+	t.Setenv("CONFIG_FIELDA", "hello")
+	t.Setenv("CONFIG_FIELDB", "10")
+	t.Setenv("CONFIG_FIELDD_FIELDE", "world")
 
 	expected := RootType{
 		FieldA: "hello",
