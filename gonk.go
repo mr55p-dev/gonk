@@ -71,13 +71,13 @@ func LoadConfig(dest any, loaders ...Loader) error {
 		node := nodeStk.pop()
 		nodeId := node.tag.String()
 		if node.tag.options.optional {
-			loaded[nodeId] = LoadRequired
-		} else {
 			loaded[nodeId] = LoadOptional
+		} else {
+			loaded[nodeId] = LoadRequired
 		}
 
 		// Try to load the value
-		err := applyLoaders(node, nodeId, loaded)
+		err := applyLoaders(node, nodeId, loaded, loaders...)
 		if err != nil {
 			return err
 		}
