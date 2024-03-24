@@ -1,0 +1,14 @@
+---
+name: on pr
+on:
+  pull_request:
+jobs:
+  run-tests:
+    name: Run tests
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-fersion: ">=1.22.0"
+      - name: Run tests
+        run: go test ./...
