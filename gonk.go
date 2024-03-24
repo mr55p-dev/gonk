@@ -41,12 +41,12 @@ type Loader interface {
 	Load(node reflect.Value, tag tagData) (reflect.Value, error)
 }
 
-type LoadState int
+type loadState int
 
 const (
-	LoadRequired LoadState = iota
-	LoadOptional
-	LoadCompleted
+	loadRequired loadState = iota
+	loadOptional
+	loadComplete
 )
 
 // LoadConfig loads configuration into a struct pointer or slice. Pass one or more loaders as arguments to provide
@@ -54,7 +54,7 @@ const (
 // encountered whilst loading, or nil if the loading was succesfull. Missing fields marked as optional will not be
 // reported as errors.
 func LoadConfig(dest any, loaders ...Loader) error {
-	loaded := make(map[string]LoadState)
+	loaded := make(map[string]loadState)
 	val := reflect.ValueOf(dest)
 	missingValues := make([]error, 0)
 
@@ -71,9 +71,9 @@ func LoadConfig(dest any, loaders ...Loader) error {
 		node := nodeStk.pop()
 		nodeId := node.tag.String()
 		if node.tag.options.optional {
-			loaded[nodeId] = LoadOptional
+			loaded[nodeId] = loadOptional
 		} else {
-			loaded[nodeId] = LoadRequired
+			loaded[nodeId] = loadRequired
 		}
 
 		// Try to load the value
@@ -83,8 +83,8 @@ func LoadConfig(dest any, loaders ...Loader) error {
 		}
 
 		// Check to see if any of the loaders succeeded, but only if the value is required
-		if loaded[nodeId] == LoadRequired {
-			missingValues = append(missingValues, ValueNotPresent(
+		if loaded[nodeId] == loadRequired {
+			missingValues = append(missingValues, ValueNotPresentError(
 				fmt.Sprintf("No value in any loader for %s", nodeId),
 			))
 		}
@@ -102,19 +102,19 @@ func LoadConfig(dest any, loaders ...Loader) error {
 	return nil
 }
 
-func applyLoaders(node *nodeFrame, nodeId string, loaded map[string]LoadState, loaders ...Loader) error {
+func applyLoaders(node *nodeFrame, nodeId string, loaded map[string]loadState, loaders ...Loader) error {
 	for _, loader := range loaders {
 		res, err := loader.Load(node.valueOf, node.tag)
 		if err != nil {
 			// exit on errors, except value not present, which we skip
-			if err, ok := err.(ValueNotPresent); !ok {
+			if err, ok := err.(ValueNotPresentError); !ok {
 				return err
 			} else {
 				continue
 			}
 		}
 		node.valueOf.Set(res)
-		loaded[nodeId] = LoadCompleted
+		loaded[nodeId] = loadComplete
 	}
 	return nil
 }

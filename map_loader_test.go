@@ -62,7 +62,7 @@ func TestNoKeyTraverseMap(t *testing.T) {
 		},
 	)
 	assert.ErrorContains(err, "nested_value")
-	assert.IsType(ValueNotPresent(""), err)
+	assert.IsType(ValueNotPresentError(""), err)
 	assert.Zero(val)
 }
 

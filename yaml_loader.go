@@ -7,7 +7,7 @@ import (
 )
 
 // NewYamlLoader returns a loader for the yaml file specified in the path. If the file does not
-// exist or cannot be unmarshalled, this returns an error.
+// exist or cannot be unmarshalled, this returns those errors transparently.
 func NewYamlLoader(file string) (Loader, error) {
 	data, err := os.ReadFile(file)
 	if err != nil {
