@@ -1,7 +1,7 @@
-// Package gonk is a configuration loader
-// It can be used to import configuration from yaml files and environment variables currently. Given a struct pointer
-// tagged with `config:"name"` fields or a slice, [LoadConfig] can be used to load values from the [Loader]s into the
-// struct.
+// Package gonk is a configuration loader built using reflection.
+// Given a public struct with public fields tagged `config`, gonk will load values from the given
+// sources in the order specified. a struct pointer tagged with `config:"name"` fields or a slice,
+// [LoadConfig] can be used to load values from the [Loader]s into the struct.
 //
 //	type Example struct {
 //		Field1 string `config:"1"`
@@ -13,10 +13,15 @@
 //	    err := LoadConfig(config, EnvLoader("prefix"))
 //	}
 //
-// In this example, gonk will look for environment variables named `PREFIX_1` and `PREFIX_ANOTHERVAR`. Field tags may be
-// more complex. The syntax is:
+// In this example, gonk will look for environment variables named `PREFIX_1` and
+// `PREFIX_ANOTHERVAR`. If one or more values are not available in at least one source, gonk will
+// return an error, unless the field is marked with the optional tag.
 //
-//	pattern: { [ path components ]... tag [ ,options ] }
+// gonk supports loading nested structs as well, provided they are also publicly exported
+//
+// Field tags may be more complex. The syntax is:
+//
+//	pattern: { [ path components ]... tag [ ,options... ] }
 //
 //	path components: allows for defining nested keys by specifying the path components separated with a '.'.
 //
@@ -25,8 +30,15 @@
 //
 //	options: optional	specifies if the key can be omitted by a specific loader.
 //
-// When specifying multiple loaders, a key must be present in at least one loader in order for the config to be loaded
-// succesfully, unless the field is marked as optional.
+// For example:
+//
+//	type Example struct {
+//		FirstField   int    `config:"app.my-int"`
+//		SecondField  string `config:"my-string"`
+//		NestedStruct struct {
+//			AnotherField int `config:"my-int"` // Will load `app.my-int`
+//		} `config:"app"`
+//	}
 package gonk
 
 import (
