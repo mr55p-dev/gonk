@@ -10,7 +10,7 @@ type MapLoader map[string]any
 func (m MapLoader) Load(node reflect.Value, tag tagData) (reflect.Value, error) {
 	val, err := m.traverse(tag)
 	var out reflect.Value
-	if err != nil || val == nil {
+	if err != nil {
 		return reflect.Value{}, errValueNotPresent(tag, m)
 	}
 	switch node.Kind() {
@@ -34,6 +34,7 @@ func (m MapLoader) Load(node reflect.Value, tag tagData) (reflect.Value, error) 
 	default:
 		return reflect.Value{}, errValueNotSupported(tag, m)
 	}
+
 	return out, nil
 }
 

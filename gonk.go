@@ -157,7 +157,8 @@ func queueNode(node reflect.Value, tag tagData) (out []*nodeFrame, err error) {
 			frame := new(nodeFrame)
 			frame.valueOf = node.Index(i)
 			frame.tag = tag.Push(tagData{
-				path: []any{i},
+				path:    []any{i},
+				options: tagOptions{optional: true},
 			})
 			out = append(out, frame)
 		}

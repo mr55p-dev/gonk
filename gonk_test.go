@@ -53,3 +53,33 @@ func TestMultiLoader(t *testing.T) {
 	assert.NoError(LoadConfig(out, mapLoader, envLoader, nil))
 	assert.Equal(expected, *out)
 }
+
+func TestDefaultLoader(t *testing.T) {
+	assert := assert.New(t)
+	out := new(RootType)
+	out.FieldF = []IntermediateB{
+		{FieldG: "foo", FieldH: "bar"},
+	}
+
+	expected := RootType{
+		FieldA: "hello",
+		FieldB: 10,
+		FieldD: IntermediateA{
+			FieldE: "world",
+		},
+		FieldF: []IntermediateB{
+			{FieldG: "foo", FieldH: "bar"},
+		},
+	}
+
+	t.Setenv("CONFIG_FIELDB", "10")
+	t.Setenv("CONFIG_FIELDD_FIELDE", "world")
+
+	mapLoader := MapLoader(map[string]any{
+		"fieldA": "hello",
+		"fieldD": map[string]any{},
+	})
+	envLoader := EnvLoader("config")
+	assert.NoError(LoadConfig(out, mapLoader, envLoader, nil))
+	assert.Equal(expected, *out)
+}
