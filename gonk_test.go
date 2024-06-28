@@ -50,6 +50,6 @@ func TestMultiLoader(t *testing.T) {
 		},
 	})
 	envLoader := EnvLoader("config")
-	assert.NoError(LoadConfig(out, mapLoader, envLoader))
+	assert.NoError(LoadConfig(out, mapLoader, envLoader, nil))
 	assert.Equal(expected, *out)
 }
