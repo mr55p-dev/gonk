@@ -118,6 +118,9 @@ func LoadConfig(dest any, loaders ...Loader) error {
 
 func applyLoaders(node *nodeFrame, nodeId string, loaded map[string]loadState, loaders ...Loader) error {
 	for _, loader := range loaders {
+		if loader == nil {
+			continue
+		}
 		res, err := loader.Load(node.valueOf, node.tag)
 		if err != nil {
 			// exit on errors, except value not present, which we skip

@@ -55,6 +55,6 @@ func TestMultiLoader(t *testing.T) {
 		"field-h": "bin",
 	})
 	envLoader := EnvLoader("config")
-	assert.NoError(LoadConfig(out, mapLoader, envLoader))
+	assert.NoError(LoadConfig(out, mapLoader, envLoader, nil))
 	assert.Equal(expected, *out)
 }
