@@ -45,6 +45,8 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
+	"unicode"
 )
 
 type errorList []error
@@ -131,6 +133,21 @@ func applyLoaders(node *nodeFrame, nodeId string, loaded map[string]loadState, l
 	return nil
 }
 
+func kebabCase(s string) string {
+	output := new(strings.Builder)
+	for idx, ch := range s {
+		if unicode.IsUpper(ch) {
+			if idx > 0 {
+				output.WriteRune('-')
+			}
+			output.WriteRune(unicode.ToLower(ch))
+		} else {
+			output.WriteRune(ch)
+		}
+	}
+	return output.String()
+}
+
 func queueNode(node reflect.Value, tag tagData) (out []*nodeFrame, err error) {
 	switch node.Kind() {
 	case reflect.Struct:
@@ -139,8 +156,10 @@ func queueNode(node reflect.Value, tag tagData) (out []*nodeFrame, err error) {
 			newFrame := new(nodeFrame)
 			fieldType := nodeType.Field(i)
 			tagRaw, ok := fieldType.Tag.Lookup("config")
-			if !ok {
+			if ok && tagRaw == "-" {
 				continue
+			} else if !ok {
+				tagRaw = kebabCase(fieldType.Name)
 			}
 
 			newFrame.valueOf = node.Field(i)
