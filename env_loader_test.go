@@ -40,6 +40,7 @@ func TestEnvLoader(t *testing.T) {
 	t.Setenv("CONFIG_FIELDA", "hello")
 	t.Setenv("CONFIG_FIELDB", "10")
 	t.Setenv("CONFIG_FIELDD_FIELDE", "world")
+	t.Setenv("CONFIG_FIELD_H", "x")
 
 	expected := RootType{
 		FieldA: "hello",
@@ -47,6 +48,7 @@ func TestEnvLoader(t *testing.T) {
 		FieldD: IntermediateA{
 			FieldE: "world",
 		},
+		FieldH: "x",
 	}
 	assert.NoError(LoadConfig(
 		out,

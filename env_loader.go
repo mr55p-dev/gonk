@@ -10,7 +10,8 @@ import (
 // EnvLoader will load configuration from environment variables. Supports only string and int types.
 // Does not support loading slice elements. Nested data will concatenate all previous path elements
 // into one env name, separated by '_'. If the undeerlying string is not "", this will be used as
-// a prefix. The entire name is uppercased.
+// a prefix. The entire name is uppercased. If a name contains a hyphen, such as with a default field
+// (ie FieldA will become field-a which then becomes FIELD_A).
 // string
 type EnvLoader string
 
