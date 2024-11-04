@@ -37,6 +37,12 @@ func (prefix EnvLoader) Load(node reflect.Value, tag tagData) (reflect.Value, er
 			return reflect.Value{}, errInvalidValue(tag, prefix)
 		}
 		return reflect.ValueOf(intVal), nil
+	case reflect.Bool:
+		var boolVal bool = false
+		if strings.ToLower(val) == "true" {
+			boolVal = true
+		}
+		return reflect.ValueOf(boolVal), nil
 	default:
 		return reflect.Value{}, errValueNotSupported(tag, prefix)
 	}

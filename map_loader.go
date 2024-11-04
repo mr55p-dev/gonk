@@ -14,7 +14,7 @@ func (m MapLoader) Load(node reflect.Value, tag tagData) (reflect.Value, error) 
 		return reflect.Value{}, errValueNotPresent(tag, m)
 	}
 	switch node.Kind() {
-	case reflect.String, reflect.Int:
+	case reflect.String, reflect.Int, reflect.Bool:
 		out = reflect.ValueOf(val)
 	case reflect.Struct:
 		out = reflect.New(node.Type()).Elem()
