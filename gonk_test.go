@@ -23,6 +23,7 @@ type RootType struct {
 	FieldF []IntermediateB `config:"fieldF,optional"`
 	FieldG string          `config:"-"`
 	FieldH string
+	FieldI bool
 }
 
 func TestMultiLoader(t *testing.T) {
@@ -39,6 +40,7 @@ func TestMultiLoader(t *testing.T) {
 			{FieldG: "baz"},
 		},
 		FieldH: "bin",
+		FieldI: true,
 	}
 
 	t.Setenv("CONFIG_FIELDB", "10")
@@ -53,6 +55,7 @@ func TestMultiLoader(t *testing.T) {
 		},
 		"field-g": "don't look at me",
 		"field-h": "bin",
+		"field-i": true,
 	})
 	envLoader := EnvLoader("config")
 	assert.NoError(LoadConfig(out, mapLoader, envLoader, nil))

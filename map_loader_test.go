@@ -80,6 +80,7 @@ func TestMapLoader(t *testing.T) {
 			{FieldG: "baz"},
 		},
 		FieldH: "-",
+		FieldI: true,
 	}
 
 	inp := MapLoader(map[string]any{
@@ -93,6 +94,7 @@ func TestMapLoader(t *testing.T) {
 			map[string]any{"fieldG": "baz"},
 		},
 		"field-h": "-",
+		"field-i": true,
 	})
 	assert.NoError(LoadConfig(out, inp))
 	assert.Equal(expected, *out)
