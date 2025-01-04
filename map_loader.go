@@ -50,7 +50,7 @@ func (m MapLoader) Load(node reflect.Value, tag tagData) (reflect.Value, error) 
 		}
 		out = reflect.MakeMap(node.Type())
 		for k, v := range val.(map[string]any) {
-			if reflect.TypeOf(v) != node.Type().Elem() {
+			if node.Type().Elem().Kind() != reflect.Interface && reflect.TypeOf(v) != node.Type().Elem() {
 				return reflect.Value{}, errInvalidValue(tag, m)
 			}
 			out.SetMapIndex(reflect.ValueOf(k), reflect.ValueOf(v))
